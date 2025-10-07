@@ -1,7 +1,7 @@
 @using BookLoop.Models
 @model ReportDefinition
 @{
-    ViewData["Title"] = "½s¿è³øªí";
+    ViewData["Title"] = "ç·¨è¼¯å ±è¡¨";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
     var previewUrl = Url.Action("PreviewDraft", "ReportPreview", new { area = "ReportMail" }) ?? "#";
@@ -10,9 +10,9 @@
 }
 
 <div class="d-flex align-items-center mb-3 mt-4">
-    <h1 class="h3 mb-0">½s¿è³øªí</h1>
+    <h1 class="h3 mb-0">ç·¨è¼¯å ±è¡¨</h1>
     <a href="@Url.Action("Index", "Reports", new { area = "ReportMail" })"
-       class="btn btn-outline-secondary btn-sm px-3 py-1 rounded-1 ms-2">ªð¦^</a>
+       class="btn btn-outline-secondary btn-sm px-3 py-1 rounded-1 ms-2">è¿”å›ž</a>
 </div>
 
 
@@ -26,16 +26,16 @@
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                     <input type="hidden" asp-for="ReportDefinitionID" />
 
-                    <!-- °ò¥»Äæ¦ì -->
+                    <!-- åŸºæœ¬æ¬„ä½ -->
                     <div class="mb-3">
-                        <label asp-for="ReportName" class="form-label">³øªí¦WºÙ</label>
+                        <label asp-for="ReportName" class="form-label">å ±è¡¨åç¨±</label>
 
-                        <!-- ¿é¤J®Ø + Àx¦s«ö¶s¨Ã±Æ -->
+                        <!-- è¼¸å…¥æ¡† + å„²å­˜æŒ‰éˆ•ä¸¦æŽ’ -->
                         <div class="input-group">
                             <input asp-for="ReportName" class="form-control" />
                             <button type="submit" id="btnSubmit"
                                     class="btn btn-primary btn-sm px-3 py-2 rounded-1">
-                                §ó·s
+                                æ›´æ–°
                             </button>
                         </div>
 
@@ -44,139 +44,140 @@
 
 
                     <div class="mb-3">
-                        <label asp-for="Category" class="form-label">¹ÏªíºØÃþ</label>
+                        <label asp-for="Category" class="form-label">åœ–è¡¨ç¨®é¡ž</label>
                         <select asp-for="Category" id="Category" class="form-select">
-                            <option value="line">§é½u¹Ï</option>
-                            <option value="bar">ªø±ø¹Ï</option>
-                            <option value="pie">¶ê»æ¹Ï</option>
+                            <option value="line">æŠ˜ç·šåœ–</option>
+                            <option value="bar">é•·æ¢åœ–</option>
+                            <option value="pie">åœ“é¤…åœ–</option>
                         </select>
                         <span asp-validation-for="Category" class="text-danger"></span>
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="BaseKind" class="form-label">°òÂ¦³øªí</label>
+                        <label asp-for="BaseKind" class="form-label">åŸºç¤Žå ±è¡¨</label>
                         <select asp-for="BaseKind" id="baseKind" class="form-select">
-                            <option value="sales">®ÑÄy¾P°â¶q¡]¥»¡^</option>
-                            <option value="borrow">®ÑÄy­É¾\¶q¡]¥»¡^</option>
-                            <option value="orders">­q³æ¡]¶È§é½u¹Ï¡^</option>
+                            <option value="sales">æ›¸ç±éŠ·å”®é‡ï¼ˆæœ¬ï¼‰</option>
+                            <option value="borrow">æ›¸ç±å€Ÿé–±é‡ï¼ˆæœ¬ï¼‰</option>
+                            <option value="orders">è¨‚å–®ï¼ˆåƒ…æŠ˜ç·šåœ–ï¼‰</option>
                         </select>
                         <span asp-validation-for="BaseKind" class="text-danger"></span>
                     </div>
 
                     <hr />
 
-                    <!-- ¤é´Á»P²É«× -->
-                    <div id="dateLabel" class="mb-2 fw-bold">¤é´Á°Ï¶¡»P²É«×</div>
+                    <!-- æ—¥æœŸèˆ‡ç²’åº¦ -->
+                    <div id="dateLabel" class="mb-2 fw-bold">æ—¥æœŸå€é–“èˆ‡ç²’åº¦</div>
                     <div class="row g-2 align-items-end mb-3">
-                        <div class="col"><label class="form-label">°_</label><input type="date" id="dateFrom" class="form-control" /></div>
-                        <div class="col"><label class="form-label">¨´</label><input type="date" id="dateTo" class="form-control" /></div>
+                        <div class="col"><label class="form-label">èµ·</label><input type="date" id="dateFrom" class="form-control" /></div>
+                        <div class="col"><label class="form-label">è¿„</label><input type="date" id="dateTo" class="form-control" /></div>
                         <div id="granGroup" class="col-auto">
-                            <div class="form-check"><input class="form-check-input" type="radio" name="gran" id="gDay" value="day" checked><label class="form-check-label" for="gDay">¤é</label></div>
-                            <div class="form-check"><input class="form-check-input" type="radio" name="gran" id="gMonth" value="month"><label class="form-check-label" for="gMonth">¤ë</label></div>
-                            <div class="form-check"><input class="form-check-input" type="radio" name="gran" id="gYear" value="year"><label class="form-check-label" for="gYear">¦~</label></div>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="gran" id="gDay" value="day" checked><label class="form-check-label" for="gDay">æ—¥</label></div>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="gran" id="gMonth" value="month"><label class="form-check-label" for="gMonth">æœˆ</label></div>
+                            <div class="form-check"><input class="form-check-input" type="radio" name="gran" id="gYear" value="year"><label class="form-check-label" for="gYear">å¹´</label></div>
                         </div>
                     </div>
 
                     <!-- sales -->
                     <div id="section-sales" class="border rounded p-3 mb-3" style="display:none">
-                        <div class="mb-2 fw-bold">¾P°â¿z¿ï</div>
+                        <div class="mb-2 fw-bold">éŠ·å”®ç¯©é¸</div>
 
                         <div class="mb-3">
-                            <label class="form-label">®ÑÄyºØÃþ</label>
+                            <label class="form-label">æ›¸ç±ç¨®é¡ž</label>
                             <select id="salesCategories" class="form-select" multiple></select>
-                            @* <div class="form-text">¿ï¡u¡]¥þ³¡¡^¡v©Î¤£¿ï¡×¥þ³¡</div> *@
+                            @* <div class="form-text">é¸ã€Œï¼ˆå…¨éƒ¨ï¼‰ã€æˆ–ä¸é¸ï¼å…¨éƒ¨</div> *@
                         </div>
 
                         <div class="row g-2 align-items-end mb-3" id="rank-sales" style="display:none">
                             <div class="col-6">
-                                <label class="form-label">¾P°â±Æ¦æ¡G°_</label>
+                                <label class="form-label">éŠ·å”®æŽ’è¡Œï¼šèµ·</label>
                                 <select id="rankFrom" class="form-select"></select>
                             </div>
                             <div class="col-6">
-                                <label class="form-label">¾P°â±Æ¦æ¡G¨´</label>
+                                <label class="form-label">éŠ·å”®æŽ’è¡Œï¼šè¿„</label>
                                 <select id="rankTo" class="form-select"></select>
                             </div>
-                            <div class="form-text">¹w³] 1~10 ¦W¡C</div>
+                            <div class="form-text">é è¨­ 1~10 åã€‚</div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">³æ¥»»ù¦ì</label>
+                            <label class="form-label">å–®æœ¬åƒ¹ä½</label>
                             <select id="priceRange" class="form-select"></select>
-                            <div class="form-text">¨C 100 ¤¸¤@°Ï¶¡¡]1~1000¡^</div>
+                            <div class="form-text">æ¯ 100 å…ƒä¸€å€é–“ï¼ˆ1~1000ï¼‰</div>
                         </div>
                     </div>
 
                     <!-- borrow -->
                     <div id="section-borrow" class="border rounded p-3 mb-3" style="display:none">
-                        <div class="mb-2 fw-bold">­É¾\¿z¿ï</div>
+                        <div class="mb-2 fw-bold">å€Ÿé–±ç¯©é¸</div>
 
                         <div class="mb-3">
-                            <label class="form-label">®ÑÄyºØÃþ</label>
+                            <label class="form-label">æ›¸ç±ç¨®é¡ž</label>
                             <select id="borrowCategories" class="form-select" multiple></select>
-                            @* <div class="form-text">¿ï¡u¡]¥þ³¡¡^¡v©Î¤£¿ï¡×¥þ³¡</div> *@
+                            @* <div class="form-text">é¸ã€Œï¼ˆå…¨éƒ¨ï¼‰ã€æˆ–ä¸é¸ï¼å…¨éƒ¨</div> *@
                         </div>
 
                         <div class="row g-2 align-items-end mb-3" id="rank-borrow" style="display:none">
                             <div class="col-6">
-                                <label class="form-label">­É¾\±Æ¦æ¡G°_</label>
+                                <label class="form-label">å€Ÿé–±æŽ’è¡Œï¼šèµ·</label>
                                 <select id="rankFromBorrow" class="form-select"></select>
                             </div>
                             <div class="col-6">
-                                <label class="form-label">­É¾\±Æ¦æ¡G¨´</label>
+                                <label class="form-label">å€Ÿé–±æŽ’è¡Œï¼šè¿„</label>
                                 <select id="rankToBorrow" class="form-select"></select>
                             </div>
-                            <div class="form-text">¹w³] 1~10 ¦W¡C</div>
+                            <div class="form-text">é è¨­ 1~10 åã€‚</div>
                         </div>
-                        <!-- ¥Xª©¦~¥÷¡]¤Q¦~°Ï¶¡¡^¡G¹w³]ÁôÂÃ -->
+                        <!-- å‡ºç‰ˆå¹´ä»½ï¼ˆåå¹´å€é–“ï¼‰ï¼šé è¨­éš±è— -->
                         <div id="publishDecadeRow" class="mb-3" style="display:none">
-                            <label class="form-label">¥Xª©¦~¥÷¡]¤Q¦~°Ï¶¡¡^</label>
+                            <label class="form-label">å‡ºç‰ˆå¹´ä»½ï¼ˆåå¹´å€é–“ï¼‰</label>
                             <select id="publishDecade" class="form-select"></select>
-                            <div class="form-text">¨C 10 ¦~¤@°Ï¡A1901 ¦~°_¦Ü²{¦b¡C</div>
+                            <div class="form-text">æ¯ 10 å¹´ä¸€å€ï¼Œ1901 å¹´èµ·è‡³ç¾åœ¨ã€‚</div>
                         </div>
                     </div>
 
-                    <!-- orders¡]¶È§é½u¹Ï¡^ -->
+                    <!-- ordersï¼ˆåƒ…æŠ˜ç·šåœ–ï¼‰ -->
                     <div id="section-orders" class="border rounded p-3 mb-3" style="display:none">
-                        <div class="mb-2 fw-bold">­q³æ¿z¿ï¡]¶È§é½u¹Ï¡^</div>
+                        <div class="mb-2 fw-bold">è¨‚å–®ç¯©é¸ï¼ˆåƒ…æŠ˜ç·šåœ–ï¼‰</div>
                         <div class="mb-3">
-                            <label class="form-label d-block">«ü¼Ð</label>
-                            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="metric" id="mAmount" value="amount"><label class="form-check-label" for="mAmount">Á`ª÷ÃB</label></div>
-                            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="metric" id="mCount" value="count"><label class="form-check-label" for="mCount">µ§¼Æ</label></div>
+                            <label class="form-label d-block">æŒ‡æ¨™</label>
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="metric" id="mAmount" value="amount"><label class="form-check-label" for="mAmount">ç¸½é‡‘é¡</label></div>
+                            <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="metric" id="mCount" value="count"><label class="form-check-label" for="mCount">ç­†æ•¸</label></div>
                         </div>
-                        <!-- ­q³æª¬ºA¡]¥]§t¦¡¿z¿ï¡F¥þ¿ï¡×¤£°e±ø¥ó¡F¥þ¤£¤Ä¡×ªÅ¶°¦X¡^ -->
+                        <!-- è¨‚å–®ç‹€æ…‹ï¼ˆåŒ…å«å¼ç¯©é¸ï¼›å…¨é¸ï¼ä¸é€æ¢ä»¶ï¼›å…¨ä¸å‹¾ï¼ç©ºé›†åˆï¼‰ -->
                         <div class="mb-3">
-                            <label class="form-label">­q³æª¬ºA</label>
+                            <label class="form-label">è¨‚å–®ç‹€æ…‹</label>
                             <div id="orderStatusGroup" class="d-flex flex-wrap gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="os_all">
-                                    <label class="form-check-label" for="os_all">¥þ¿ï</label>
+                                    <label class="form-check-label" for="os_all">å…¨é¸</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input os" type="checkbox" id="os_0" data-val="0">
-                                    <label class="form-check-label" for="os_0">«Ý³B²z</label>
+                                    <label class="form-check-label" for="os_0">å¾…è™•ç†</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input os" type="checkbox" id="os_1" data-val="1">
-                                    <label class="form-check-label" for="os_1">¤w¥I´Ú</label>
+                    <span class="text-danger" data-valmsg-for="FiltersJson" data-valmsg-replace="true"></span>
+                                    <label class="form-check-label" for="os_1">å·²ä»˜æ¬¾</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input os" type="checkbox" id="os_2" data-val="2">
-                                    <label class="form-check-label" for="os_2">¤w¥X³f</label>
+                                    <label class="form-check-label" for="os_2">å·²å‡ºè²¨</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input os" type="checkbox" id="os_3" data-val="3">
-                                    <label class="form-check-label" for="os_3">¤w§¹¦¨</label>
+                                    <label class="form-check-label" for="os_3">å·²å®Œæˆ</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input os" type="checkbox" id="os_4" data-val="4">
-                                    <label class="form-check-label" for="os_4">¤w¨ú®ø</label>
+                                    <label class="form-check-label" for="os_4">å·²å–æ¶ˆ</label>
                                 </div>
                             </div>
-                            @* <div class="form-text">¹w³]¥u¤Ä¡u¤w§¹¦¨¡v¡C¥þ¿ï¡×¤£¥[ª¬ºA±ø¥ó¡F¥þ¤£¤Ä¡×°eªÅ¶°¦X¡]¦^ªÅµ²ªG¡^¡C</div> *@
+                            @* <div class="form-text">é è¨­åªå‹¾ã€Œå·²å®Œæˆã€ã€‚å…¨é¸ï¼ä¸åŠ ç‹€æ…‹æ¢ä»¶ï¼›å…¨ä¸å‹¾ï¼é€ç©ºé›†åˆï¼ˆå›žç©ºçµæžœï¼‰ã€‚</div> *@
                         </div>
                         <div class="row g-2">
-                            <div class="col"><label class="form-label">³æµ§ª÷ÃB¡]Min¡^</label><input type="number" id="ordAmtMin" class="form-control" placeholder="0" /></div>
-                            <div class="col"><label class="form-label">³æµ§ª÷ÃB¡]Max¡^</label><input type="number" id="ordAmtMax" class="form-control" placeholder="999999" /></div>
+                            <div class="col"><label class="form-label">å–®ç­†é‡‘é¡ï¼ˆMinï¼‰</label><input type="number" id="ordAmtMin" class="form-control" placeholder="0" /></div>
+                            <div class="col"><label class="form-label">å–®ç­†é‡‘é¡ï¼ˆMaxï¼‰</label><input type="number" id="ordAmtMax" class="form-control" placeholder="999999" /></div>
                         </div>
                     </div>
 
@@ -191,7 +192,7 @@
     <div class="col-lg-6">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title mb-3">¹wÄý</h5>
+                <h5 class="card-title mb-3">é è¦½</h5>
                 <canvas id="previewChart" height="200"></canvas>
             </div>
         </div>
@@ -201,15 +202,15 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        window.__API_PREVIEW__ = "@previewUrl";  // §A­¶­±¤W­ì¥»ªº previewUrl ÅÜ¼Æ
-        window.__API_CATS__    = "@catsUrl";     // ¤ÀÃþ²M³æ API
-        // ¥u¦³ Edit ­¶¤~»Ý­n³o¦æ¡]Create ¤£­n©ñ¡^
+        window.__API_PREVIEW__ = "@previewUrl";  // ä½ é é¢ä¸ŠåŽŸæœ¬çš„ previewUrl è®Šæ•¸
+        window.__API_CATS__    = "@catsUrl";     // åˆ†é¡žæ¸…å–® API
+        // åªæœ‰ Edit é æ‰éœ€è¦é€™è¡Œï¼ˆCreate ä¸è¦æ”¾ï¼‰
         window.__DEF_URL__     = "@defUrl";
     </script>
 
     <script src="~/js/report-def-form.js" asp-append-version="true"></script>
     <script>
-        // ½s¿è­¶­±±M¥Î¡G§â«áºÝ©w¸q®M¦^¡]¥]§t bar/pie¡^
+        // ç·¨è¼¯é é¢å°ˆç”¨ï¼šæŠŠå¾Œç«¯å®šç¾©å¥—å›žï¼ˆåŒ…å« bar/pieï¼‰
         window.__DEF_URL__ = "@defUrl";
     </script>
     @{
