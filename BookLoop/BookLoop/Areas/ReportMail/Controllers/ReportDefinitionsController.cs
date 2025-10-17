@@ -293,6 +293,29 @@ public class ReportDefinitionsController : Controller
 				Filters = filters
 			});
 		}
+		// GET: /ReportMail/ReportDefinitions/List?category=line|bar|pie
+		[HttpGet]
+		[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+		public async Task<IActionResult> List(string? category)
+		{
+			var q = _context.ReportDefinitions
+				.AsNoTracking()
+				.Where(r => r.IsActive);
+
+			if (!string.IsNullOrWhiteSpace(category))
+			{
+				var c = category.Trim().ToLowerInvariant();
+				q = q.Where(r => (r.Category ?? "").Trim().ToLowerInvariant() == c);
+			}
+
+			var items = await q
+				.OrderBy(r => r.SortOrder)
+				.Select(r => new { id = r.ReportDefinitionID, name = r.ReportName, category = r.Category })
+				.ToListAsync();
+
+			return Json(items);
+		}
+
 
 		private bool ReportDefinitionExists(int id)
 			=> _context.ReportDefinitions.Any(e => e.ReportDefinitionID == id);
