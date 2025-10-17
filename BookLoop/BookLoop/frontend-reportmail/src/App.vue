@@ -1,154 +1,174 @@
 <template>
-    <div class="rm-wrap">
-        <!-- 控制列：三區塊 -->
-        <div class="row g-3 mb-3">
-            <div class="col-4" v-for="sec in sections" :key="sec.kind">
-                <label class="form-label">{{ sec.label }}定義</label>
-                <select class="form-select" v-model="sec.model.reportId" @change="onChange(sec.kind)">
-                    <option :value="0">（預設）</option>
-                    <option v-for="d in defsByKind(sec.kind)" :key="d.id" :value="d.id">{{ d.name }}</option>
-                </select>
-                <div class="btns">
-                    <button class="btn btn-outline-primary btn-sm" @click="editDef(sec.kind)">編輯</button>
-                    <button class="btn btn-outline-danger btn-sm" @click="deleteDef(sec.kind)">刪除</button>
-                    <button class="btn btn-success btn-sm" @click="exportChart(sec.kind)">匯出</button>
-                </div>
-            </div>
-        </div>
+    <div class="page-wrap">
+        <div class="grid">
+            <!-- 圓餅 -->
+            <ChartPanel class="panel" title="圓餅圖" kind="pie"
+                        :labels="pie.labels" :series="pie.data" :loading="loading" :height="420">
+                <template #toolbar>
+                    <div class="toolbar-wrap">
+                        <select v-model="store.selected.pie" class="select" @change="run('pie')">
+                            <option v-for="d in defs('pie')" :key="d.id" :value="d.id">{{ d.name }}</option>
+                        </select>
+                        <div class="btns">
+                            <ExportDialog :payload="payload('pie')" :requireEmail="true" />
+                            <button class="btn btn-blue" @click="createDef('pie')">新增</button>
+                            <button class="btn btn-outline-blue" @click="editDef('pie')">編輯</button>
+                            <button class="btn btn-outline-red" @click="deleteDef('pie')">刪除</button>
+                        </div>
+                    </div>
+                </template>
+            </ChartPanel>
 
-        <!-- 三張圖 -->
-        <div class="row g-4">
-            <div class="col-4">
-                <ChartPanel :title="titleOf('line')" :labels="result('line').labels" :series="result('line').data" :loading="loading" :height="220" />
-            </div>
-            <div class="col-4">
-                <ChartPanel :title="titleOf('bar')" :labels="result('bar').labels" :series="result('bar').data" :loading="loading" :height="220" />
-            </div>
-            <div class="col-4">
-                <ChartPanel :title="titleOf('pie')" :labels="result('pie').labels" :series="result('pie').data" :loading="loading" :height="220" />
-            </div>
-        </div>
+            <!-- 折線 -->
+            <ChartPanel class="panel" title="折線圖" kind="line"
+                        :labels="line.labels" :series="line.data" :loading="loading" :height="220">
+                <template #toolbar>
+                    <div class="toolbar-wrap">
+                        <select v-model="store.selected.line" class="select" @change="run('line')">
+                            <option v-for="d in defs('line')" :key="d.id" :value="d.id">{{ d.name }}</option>
+                        </select>
+                        <div class="btns">
+                            <ExportDialog :payload="payload('line')" :requireEmail="true" />
+                            <button class="btn btn-blue" @click="createDef('line')">新增</button>
+                            <button class="btn btn-outline-blue" @click="editDef('line')">編輯</button>
+                            <button class="btn btn-outline-red" @click="deleteDef('line')">刪除</button>
+                        </div>
+                    </div>
+                </template>
+            </ChartPanel>
 
-        <!-- 匯出（沿用你後端端點；按鈕觸發內部 confirm） -->
-        <div class="mt-3">
-            <ExportDialog :disabled="!canExport" :payload="exportPayload" />
+            <!-- 長條 -->
+            <ChartPanel class="panel" title="長條圖" kind="bar"
+                        :labels="bar.labels" :series="bar.data" :loading="loading" :height="220">
+                <template #toolbar>
+                    <div class="toolbar-wrap">
+                        <select v-model="store.selected.bar" class="select" @change="run('bar')">
+                            <option v-for="d in defs('bar')" :key="d.id" :value="d.id">{{ d.name }}</option>
+                        </select>
+                        <div class="btns">
+                            <ExportDialog :payload="payload('bar')" :requireEmail="true" />
+                            <button class="btn btn-blue" @click="createDef('bar')">新增</button>
+                            <button class="btn btn-outline-blue" @click="editDef('bar')">編輯</button>
+                            <button class="btn btn-outline-red" @click="deleteDef('bar')">刪除</button>
+                        </div>
+                    </div>
+                </template>
+            </ChartPanel>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-    import { ref, computed } from 'vue'
-    import { useReportsStore } from './stores/reports'
+    import { computed, onMounted, ref } from 'vue'
+    import axios from 'axios'
     import ChartPanel from './components/ChartPanel.vue'
     import ExportDialog from './components/ExportDialog.vue'
+    import { useReportsStore } from './stores/reports'
+
+    declare global { interface Window { ReportPageConfig?: any } }
+    const RPC = (typeof window !== 'undefined' ? window.ReportPageConfig : {}) || {}
+    const URLS = RPC.urls || {}
 
     const store = useReportsStore()
     const loading = ref(false)
 
-    const sections = [
-        { kind: 'line' as const, label: '折線', model: store.filters },
-        { kind: 'bar' as const, label: '長條', model: store.filters },
-        { kind: 'pie' as const, label: '圓餅', model: store.filters }
-    ]
+    const pie = computed(() => store.resultPie)
+    const line = computed(() => store.resultLine)
+    const bar = computed(() => store.resultBar)
+    const defs = (k: 'line' | 'bar' | 'pie') => store.defsOf(k)
 
-    function defsByKind(kind: 'line' | 'bar' | 'pie') {
-        return store.defs.filter(d => d.category === kind)
+    function payload(kind: 'line' | 'bar' | 'pie') {
+        return { reportId: store.selected[kind] ?? 0, kind, filters: { range: store.range, publisherId: store.publisherId } }
     }
-    function titleOf(kind: 'line' | 'bar' | 'pie') {
-        const preset = { line: '預設折線圖', bar: '預設長條圖', pie: '預設圓餅圖' }
-        return preset[kind]
-    }
-    function result(_kind: 'line' | 'bar' | 'pie') {
-        // 目前共用一份 result；若你要拆成三份，這裡改對應即可
-        return store.result
-    }
-    async function onChange(_kind: 'line' | 'bar' | 'pie') {
+
+    async function run(kind: 'line' | 'bar' | 'pie') {
         loading.value = true
-        try { await store.fetchData() } finally { loading.value = false }
+        try { await store.fetchData(kind) } finally { loading.value = false }
     }
-    function editDef(kind: 'line' | 'bar' | 'pie') { /* TODO: 帶去你的編輯頁 */ }
-    function deleteDef(kind: 'line' | 'bar' | 'pie') { /* TODO: 呼叫刪除後重刷 */ }
-    function exportChart(kind: 'line' | 'bar' | 'pie') { /* TODO: 若需帶 kind 可加到 payload */ }
 
-    const canExport = computed(() => (store.result.labels?.length ?? 0) > 0)
-    const exportPayload = computed(() => ({
-        reportId: store.filters.reportId ?? 0,
-        kind: store.filters.category,
-        filters: store.filters
-    }))
+    function createDef(kind: 'line' | 'bar' | 'pie') {
+        const u = URLS?.create ?? '/ReportMail/ReportDefinitions/Create'
+        window.location.href = `${u}?category=${kind}`
+    }
+    function editDef(kind: 'line' | 'bar' | 'pie') {
+        const id = store.selected[kind]
+        if (!id) { alert('請先選擇「自訂報表」'); return }
+        const base = URLS?.editBase ?? '/ReportMail/ReportDefinitions/Edit'
+        window.location.href = `${base}/${id}`
+    }
+    async function deleteDef(kind: 'line' | 'bar' | 'pie') {
+        const id = store.selected[kind]
+        if (!id) { alert('請先選擇「自訂報表」'); return }
+        if (!confirm('確定要刪除此報表定義？')) return
+        const token = document.querySelector<HTMLInputElement>('form#__af__ input[name="__RequestVerificationToken"]')?.value ?? ''
+        await axios.post(URLS?.delete ?? '/ReportMail/ReportDefinitions/Delete', new URLSearchParams({ id: String(id), __RequestVerificationToken: token }))
+        await store.fetchDefinitions(kind)
+        store.selected[kind] = 0
+        await run(kind)
+    }
+
+    onMounted(async () => {
+        await store.fetchDefinitions()        // ① 先抓清單（含預設）
+        await run('pie'); await run('line'); await run('bar') // ② 載入資料
+    })
 </script>
 
 <style scoped>
-    /* 容器與格線（自製 12 欄） */
-    .rm-wrap {
-        max-width: 1320px;
+    .page-wrap {
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 16px;
+        padding: 12px 16px 24px;
     }
 
-    .row {
+    .grid {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 16px;
+        grid-template-areas:
+            "left right-top"
+            "left right-bottom";
+    }
+
+    .panel:nth-child(1) {
+        grid-area: left;
+    }
+
+    .panel:nth-child(2) {
+        grid-area: right-top;
+    }
+
+    .panel:nth-child(3) {
+        grid-area: right-bottom;
+    }
+
+    .toolbar-wrap {
         display: flex;
-        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
     }
 
-    .g-3 > * {
-        padding: 12px;
-    }
-    /* 間距對齊 g-3 */
-    .g-4 > * {
-        padding: 16px;
-    }
-    /* 間距對齊 g-4 */
-    .mb-3 {
-        margin-bottom: 16px;
-    }
-
-    .mt-3 {
-        margin-top: 16px;
-    }
-
-    .col-4 {
-        width: 100%;
-    }
-
-    @media (min-width: 992px) {
-        .col-4 {
-            width: 33.3333%;
-        }
-    }
-
-    /* 表單與按鈕（外觀貼近原本） */
-    .form-label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: 600;
-    }
-
-    .form-select {
-        width: 100%;
-        height: 36px;
-        padding: 6px 10px;
-        border: 1px solid #ced4da;
+    .select {
+        height: 32px;
+        min-width: 320px;
+        padding: 4px 10px;
+        border: 1px solid #d0d5dd;
         border-radius: 6px;
         background: #fff;
         outline: none;
     }
 
-        .form-select:focus {
+        .select:focus {
             border-color: #86b7fe;
             box-shadow: 0 0 0 2px rgba(13,110,253,.15);
         }
 
     .btns {
-        margin-top: 8px;
         display: flex;
-        gap: 8px;
+        gap: 6px;
     }
 
     .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         height: 30px;
         padding: 0 10px;
         border-radius: 6px;
@@ -158,41 +178,49 @@
         background: #f8f9fa;
     }
 
-    .btn-sm {
-        height: 28px;
-        padding: 0 8px;
-        font-size: 12px;
+    .btn-success {
+        background: #28a745;
+        color: #fff;
+        border-color: #28a745;
     }
 
-    .btn-outline-primary {
+    .btn-blue {
+        background: #0d6efd;
+        color: #fff;
         border-color: #0d6efd;
-        color: #0d6efd;
-        background: #fff;
     }
 
-        .btn-outline-primary:hover {
+    .btn-outline-blue {
+        background: #fff;
+        color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+        .btn-outline-blue:hover {
             background: #0d6efd;
             color: #fff;
         }
 
-    .btn-outline-danger {
-        border-color: #dc3545;
-        color: #dc3545;
+    .btn-outline-red {
         background: #fff;
+        color: #dc3545;
+        border-color: #dc3545;
     }
 
-        .btn-outline-danger:hover {
+        .btn-outline-red:hover {
             background: #dc3545;
             color: #fff;
         }
 
-    .btn-success {
-        background: #198754;
-        color: #fff;
-        border-color: #198754;
-    }
-
-        .btn-success:hover {
-            filter: brightness(0.95);
+    @media (max-width: 1100px) {
+        .grid {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto;
+            grid-template-areas: "left" "right-top" "right-bottom";
         }
+
+        .select {
+            min-width: 200px;
+        }
+    }
 </style>

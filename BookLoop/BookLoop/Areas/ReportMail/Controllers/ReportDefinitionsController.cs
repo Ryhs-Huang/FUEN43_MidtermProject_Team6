@@ -293,28 +293,29 @@ public class ReportDefinitionsController : Controller
 				Filters = filters
 			});
 		}
-		// GET: /ReportMail/ReportDefinitions/List?category=line|bar|pie
-		[HttpGet]
+		// GET /ReportMail/ReportDefinitions/List?category=line|bar|pie
+		[HttpGet("List")]
 		[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
 		public async Task<IActionResult> List(string? category)
 		{
 			var q = _context.ReportDefinitions
 				.AsNoTracking()
-				.Where(r => r.IsActive);
+				.Where(r => r.IsActive); // 若是 int 欄位，改成 r.IsActive == 1
 
 			if (!string.IsNullOrWhiteSpace(category))
 			{
-				var c = category.Trim().ToLowerInvariant();
-				q = q.Where(r => (r.Category ?? "").Trim().ToLowerInvariant() == c);
+				var c = category.Trim().ToLower();
+				q = q.Where(r => ((r.Category ?? "").ToLower()) == c);
 			}
 
 			var items = await q
-				.OrderBy(r => r.SortOrder)
+				.OrderBy(r => r.SortOrder ) // 若 SortOrder 不是可空型別，移除 ?? 0
 				.Select(r => new { id = r.ReportDefinitionID, name = r.ReportName, category = r.Category })
 				.ToListAsync();
 
 			return Json(items);
 		}
+
 
 
 		private bool ReportDefinitionExists(int id)

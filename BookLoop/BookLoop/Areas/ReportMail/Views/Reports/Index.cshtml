@@ -8,6 +8,11 @@
 <div id="rm-reports-app"></div>
 <link rel="stylesheet" href="~/reportmail/reportmail.css" />
 
+<form id="__af__" method="post" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+
 @* 🔒 舊版 DOM 全數移除（改用 Vue 版 UI）
 <div class="row g-3 mb-3"> ... 三個下拉與按鈕 ... </div>
 <div class="row g-4"> ... 三個 <canvas> chartLine/chartBar/chartPie ... </div>
@@ -24,6 +29,7 @@
     <!-- ✅ 給前端用的 API 設定（沿用你現有路由；使用 api 單數欄位） -->
     <script>
         window.ReportPageConfig = {
+            base: '/ReportMail',
             api: {
                 line:      '@Url.Action("Line", "Reports", new { area = "ReportMail" })',
                 bar:       '@Url.Action("Bar", "Reports", new { area = "ReportMail" })',
@@ -31,7 +37,8 @@
                 defPayload:'@Url.Action("DefinitionPayload", "ReportDefinitions", new { area = "ReportMail" })',
                 preview:   '@Url.Action("PreviewDraft", "ReportPreview", new { area = "ReportMail" })',
                 sendExcel: '@Url.Action("SendExcel", "ReportExport", new { area = "ReportMail" })',
-                sendPdf:   '@Url.Action("SendPdf", "ReportExport", new { area = "ReportMail" })'
+                sendPdf:   '@Url.Action("SendPdf", "ReportExport", new { area = "ReportMail" })',
+                list: '@Url.Action("List", "ReportDefinitions", new { area = "ReportMail" })'
             }
         };
     </script>
