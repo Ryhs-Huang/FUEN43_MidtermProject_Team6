@@ -348,8 +348,16 @@ namespace BookLoop
 			builder.Services.AddRazorPages();
 
 			// Hangfire（開發期先用記憶體儲存；正式環境可改 SQL Storage）
-			builder.Services.AddHangfire(cfg => cfg.UseMemoryStorage());
-			builder.Services.AddHangfireServer();
+			//builder.Services.AddHangfire(cfg => cfg.UseMemoryStorage());
+            builder.Services.AddHangfire(configuration => configuration
+            //確保 Hangfire 使用最新的資料庫邏輯（1.8.0 版本），提升處理大量任務時的效能
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            //啟用簡單型別名稱序列化
+            .UseSimpleAssemblyNameTypeSerializer()
+            //官方推薦的 JSON 序列化設定
+            .UseRecommendedSerializerSettings()
+			.UseSqlServerStorage(bookloopStr));
+            builder.Services.AddHangfireServer();
 
 
 

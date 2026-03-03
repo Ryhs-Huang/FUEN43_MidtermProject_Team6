@@ -148,18 +148,24 @@ namespace BookLoop.Areas.Mail.Controllers
             m.TotalRecipients = recipients.Count;
             await _db.SaveChangesAsync();
 
+
             // 3) 依 SendAt 排程或立即執行（用本地時間）
+
+            string hId = string.Empty; // 接 Hagfire ID
+
             if (m.SendAt <= DateTime.Now.AddSeconds(30))
             {
-                BackgroundJob.Enqueue<IMailJobRunner>(r => r.RunAsync(m.JobId, CancellationToken.None));
+                hId=BackgroundJob.Enqueue<IMailJobRunner>(r => r.RunAsync(m.JobId, CancellationToken.None));
                 TempData["ok"] = $"已建立 Job #{m.JobId} 並立即開始執行。";
             }
             else
             {
                 var delay = m.SendAt - DateTime.Now;
-                BackgroundJob.Schedule<IMailJobRunner>(r => r.RunAsync(m.JobId, CancellationToken.None), delay);
+                hId=BackgroundJob.Schedule<IMailJobRunner>(r => r.RunAsync(m.JobId, CancellationToken.None), delay);
                 TempData["ok"] = $"已建立排程 Job #{m.JobId}，將於 {m.SendAt:yyyy/MM/dd HH:mm} 執行。";
             }
+            m.HangfireJobId = hId;
+            await _db.SaveChangesAsync();
 
             return RedirectToAction(nameof(Details), new { id = m.JobId });
         }
@@ -245,6 +251,13 @@ namespace BookLoop.Areas.Mail.Controllers
             if (m.Status is "Sending" or "Scheduled")
             {
                 m.Status = "Canceled";
+
+                // 若 Job 還沒開始或正在執行，刪除 Hangfire 任務
+                if (!string.IsNullOrEmpty(m.HangfireJobId))
+                {
+                    // 這會立刻發送信號給正在執行的 Runner 執行緒
+                    BackgroundJob.Delete(m.HangfireJobId);
+                }
                 await _db.SaveChangesAsync();
                 TempData["ok"] = $"Job #{id} 已取消。";
             }

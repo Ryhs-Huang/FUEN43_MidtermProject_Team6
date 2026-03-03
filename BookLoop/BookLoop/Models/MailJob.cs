@@ -39,7 +39,7 @@ namespace BookLoop.Models
         public string SegmentQuery { get; set; } = string.Empty;
 
         /// <summary>
-        /// Scheduled / Running / Done / Cancelled / Failed
+        /// Scheduled / Sending / Completed / Canceled / Failed
         /// </summary>
         public string Status { get; set; } = "Scheduled";
 
@@ -53,6 +53,8 @@ namespace BookLoop.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public string? CreatedBy { get; set; }
+
+        public string? HangfireJobId { get; set; }
 
         // 導覽屬性
         public ICollection<MailJobRecipient> Recipients { get; set; } = new List<MailJobRecipient>();

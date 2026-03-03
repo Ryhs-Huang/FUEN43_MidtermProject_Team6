@@ -22,7 +22,7 @@ namespace BookLoop.Models
         public string? RecipientName { get; set; }
 
         [MaxLength(20)]
-        public string Status { get; set; } = "Pending"; // Pending / Sent / Failed
+        public string Status { get; set; } = "Pending"; // Pending / Senting / Sent / Failed
 
         public DateTime? SentAt { get; set; }
         [MaxLength(1000)]
