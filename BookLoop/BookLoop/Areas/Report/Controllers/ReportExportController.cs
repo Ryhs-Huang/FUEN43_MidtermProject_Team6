@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using ReportMail.Models.Dto;                 // 統一使用 Dto 版 ExportSnapshot
+using Report.Models.Dto;                 // 統一使用 Dto 版 ExportSnapshot
 using System;
 using System.Linq;
 using System.Security.Claims;
@@ -18,18 +18,18 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace ReportMail.Areas.ReportMail.Controllers
+namespace Report.Areas.Report.Controllers
 {
-	[Area("ReportMail")]
-	[Route("ReportMail/[controller]/[action]")]
+	[Area("Report")]
+	[Route("Report/[controller]/[action]")]
 	public class ReportExportController : Controller
 	{
 		private readonly IExcelExporter _excel;
 		private readonly IMailService _mail;
-		private readonly ReportMailDbContext _db;
+		private readonly ReportDbContext _db;
 		private readonly ShopDbContext _shop;
 
-		public ReportExportController(IExcelExporter excel, IMailService mail, ReportMailDbContext db, ShopDbContext shop)
+		public ReportExportController(IExcelExporter excel, IMailService mail, ReportDbContext db, ShopDbContext shop)
 		{
 			_excel = excel;
 			_mail = mail;
@@ -41,7 +41,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
 		// Excel：寄送（含寫入快照）
 		// =========================
 		[HttpPost]
-		[Authorize(Policy = "ReportMail.Export.Excel")]
+		[Authorize(Policy = "Report.Export.Excel")]
 		public async Task<IActionResult> SendExcel([FromBody] ReportExportDto dto)
 		{
 			// ---- 0) 基本驗證 ----
@@ -163,7 +163,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
 				ProcessedAt = DateTime.Now,
 				Filters = filtersJson,
 				TraceId = Guid.NewGuid(),
-				PolicyUsed = "ReportMail.Export.Excel",
+				PolicyUsed = "Report.Export.Excel",
 				Ip = HttpContext.Connection.RemoteIpAddress?.ToString(),
 				UserAgent = Request.Headers.UserAgent.ToString(),
 				SnapshotJson = ToJson(MakeSnapshot(dto))   // ★ 關鍵：寫入快照
@@ -177,7 +177,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
 		// PDF：寄送（含寫入快照）
 		// =========================
 		[HttpPost]
-		[Authorize(Policy = "ReportMail.Export.Pdf")]
+		[Authorize(Policy = "Report.Export.Pdf")]
 		public async Task<IActionResult> SendPdf([FromBody] ReportExportDto dto)
 		{
 			if (dto is null) return BadRequest("缺少必要參數");
@@ -412,7 +412,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
 				ProcessedAt = DateTime.Now,
 				Filters = filtersJson,
 				TraceId = Guid.NewGuid(),
-				PolicyUsed = "ReportMail.Export.Pdf",
+				PolicyUsed = "Report.Export.Pdf",
 				Ip = HttpContext.Connection.RemoteIpAddress?.ToString(),
 				UserAgent = Request.Headers.UserAgent.ToString(),
 				SnapshotJson = ToJson(MakeSnapshot(dto))   // ★ 關鍵：補上快照

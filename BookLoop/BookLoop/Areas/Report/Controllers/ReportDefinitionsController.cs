@@ -10,30 +10,30 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace ReportMail.Areas.ReportMail.Controllers
+namespace Report.Areas.Report.Controllers
 {
-    public class ReportDefinitionsController : ReportMailAreaController
+    public class ReportDefinitionsController : ReportAreaController
     {
-        private readonly ReportMailDbContext _context;
+        private readonly ReportDbContext _context;
 
-        public ReportDefinitionsController(ReportMailDbContext context)
+        public ReportDefinitionsController(ReportDbContext context)
         {
             _context = context;
         }
 
-        // GET: ReportMail/ReportDefinitions
+        // GET: Report/ReportDefinitions
         public async Task<IActionResult> Index()
         {
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
 
-            if ((await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.ViewAny")).Succeeded)
+            if ((await auth.AuthorizeAsync(User, "Report.Reports.Def.ViewAny")).Succeeded)
             {
                 var list = await _context.ReportDefinitions.AsNoTracking()
                              .OrderByDescending(x => x.UpdatedAt).ToListAsync();
                 return View(list);
             }
 
-            if ((await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.ViewOwn")).Succeeded)
+            if ((await auth.AuthorizeAsync(User, "Report.Reports.Def.ViewOwn")).Succeeded)
             {
                 var myId = CurrentUserIdOrNull();
                 if (myId is null) return Forbid();
@@ -46,7 +46,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
             return Forbid();
         }
 
-        // GET: ReportMail/ReportDefinitions/Details/5
+        // GET: Report/ReportDefinitions/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
@@ -57,10 +57,10 @@ namespace ReportMail.Areas.ReportMail.Controllers
             if (def == null) return NotFound();
 
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            if ((await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.ViewAny")).Succeeded)
+            if ((await auth.AuthorizeAsync(User, "Report.Reports.Def.ViewAny")).Succeeded)
                 return View(def);
 
-            if ((await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.ViewOwn")).Succeeded)
+            if ((await auth.AuthorizeAsync(User, "Report.Reports.Def.ViewOwn")).Succeeded)
             {
                 var myId = CurrentUserIdOrNull();
                 if (myId is null) return Forbid();
@@ -70,8 +70,8 @@ namespace ReportMail.Areas.ReportMail.Controllers
             return Forbid();
         }
 
-        // GET: ReportMail/ReportDefinitions/Create
-        [Authorize(Policy = "ReportMail.Reports.Def.Create")]
+        // GET: Report/ReportDefinitions/Create
+        [Authorize(Policy = "Report.Reports.Def.Create")]
 
         public IActionResult Create(string? category)
         {
@@ -118,11 +118,11 @@ namespace ReportMail.Areas.ReportMail.Controllers
             }
         }
 
-        // POST: ReportMail/ReportDefinitions/Create
+        // POST: Report/ReportDefinitions/Create
         // 把 BaseKind 納入 Bind；時間戳後端自動補；FiltersJson 會展開為多筆 ReportFilter（只寫 ValueJson）
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "ReportMail.Reports.Def.Create")]
+        [Authorize(Policy = "Report.Reports.Def.Create")]
 
         public async Task<IActionResult> Create(
             [Bind("ReportDefinitionID,ReportName,Category,BaseKind,Description,IsActive,CreatedAt,UpdatedAt")]
@@ -191,10 +191,10 @@ namespace ReportMail.Areas.ReportMail.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return RedirectToAction("Index", "Reports", new { area = "ReportMail" });
+            return RedirectToAction("Index", "Reports", new { area = "Report" });
         }
 
-        // GET: ReportMail/ReportDefinitions/Edit/5
+        // GET: Report/ReportDefinitions/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -204,8 +204,8 @@ namespace ReportMail.Areas.ReportMail.Controllers
             if (def == null) return NotFound();
 
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAny = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.EditAny")).Succeeded;
-            var canOwn = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.EditOwn")).Succeeded;
+            var canAny = (await auth.AuthorizeAsync(User, "Report.Reports.Def.EditAny")).Succeeded;
+            var canOwn = (await auth.AuthorizeAsync(User, "Report.Reports.Def.EditOwn")).Succeeded;
             var myId = CurrentUserIdOrNull();
             if (myId is null) return Forbid();// 非 Admin 且無法識別 UserID -> Forbid
 
@@ -226,7 +226,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
             return View(def);
         }
 
-        // POST: ReportMail/ReportDefinitions/Edit/5
+        // POST: Report/ReportDefinitions/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id,
@@ -260,8 +260,8 @@ namespace ReportMail.Areas.ReportMail.Controllers
             if (entity == null) return NotFound();
 
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAny = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.EditAny")).Succeeded;
-            var canOwn = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.EditOwn")).Succeeded;
+            var canAny = (await auth.AuthorizeAsync(User, "Report.Reports.Def.EditAny")).Succeeded;
+            var canOwn = (await auth.AuthorizeAsync(User, "Report.Reports.Def.EditOwn")).Succeeded;
             var myId = CurrentUserIdOrNull();
             if (myId is null && !canAny) return Forbid();
             if (!(canAny || (canOwn && entity.OwnerUserID == myId))) return Forbid(); // ★ 使用 entity 判斷擁有者
@@ -339,7 +339,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
                 // 一次性儲存所有變更
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();
-                return RedirectToAction("Index", "Reports", new { area = "ReportMail" });
+                return RedirectToAction("Index", "Reports", new { area = "Report" });
             }
             catch (DbUpdateConcurrencyException) // 並發衝突
             {
@@ -372,7 +372,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
             }
         }
 
-        // GET: ReportMail/ReportDefinitions/Delete/5
+        // GET: Report/ReportDefinitions/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -380,8 +380,8 @@ namespace ReportMail.Areas.ReportMail.Controllers
             if (def == null) return NotFound();
 
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAny = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.DeleteAny")).Succeeded;
-            var canOwn = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.DeleteOwn")).Succeeded;
+            var canAny = (await auth.AuthorizeAsync(User, "Report.Reports.Def.DeleteAny")).Succeeded;
+            var canOwn = (await auth.AuthorizeAsync(User, "Report.Reports.Def.DeleteOwn")).Succeeded;
             var myId = CurrentUserIdOrNull();
             if (myId is null) return Forbid();
 
@@ -389,7 +389,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
             return View(def);
         }
 
-        // POST: ReportMail/ReportDefinitions/Delete/5
+        // POST: Report/ReportDefinitions/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -401,8 +401,8 @@ namespace ReportMail.Areas.ReportMail.Controllers
 
             // 授權：DeleteAny / DeleteOwn
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAny = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.DeleteAny")).Succeeded;
-            var canOwn = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Def.DeleteOwn")).Succeeded;
+            var canOwn = (await auth.AuthorizeAsync(User, "Report.Reports.Def.DeleteOwn")).Succeeded;
+            var canAny = (await auth.AuthorizeAsync(User, "Report.Reports.Def.DeleteAny")).Succeeded;
             var myId = CurrentUserIdOrNull();
             if (myId is null) return Forbid();
             if (!(canAny || (canOwn && def.OwnerUserID == myId))) return Forbid();
@@ -413,13 +413,13 @@ namespace ReportMail.Areas.ReportMail.Controllers
             _context.ReportDefinitions.Remove(def);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("Index", "Reports", new { area = "ReportMail" });
+            return RedirectToAction("Index", "Reports", new { area = "Report" });
         }
 
         // 供主頁下拉載入自訂「折線圖」報表所需參數：Category + BaseKind + Filters（只含 ValueJson）
         [HttpGet]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> DefinitionPayload(int id)
         {
             var def = await _context.ReportDefinitions

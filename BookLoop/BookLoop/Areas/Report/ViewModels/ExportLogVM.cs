@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace BookLoop.Areas.ReportMail.ViewModels
+namespace BookLoop.Areas.Report.ViewModels
 {
 	public class ExportLogVM
 	{

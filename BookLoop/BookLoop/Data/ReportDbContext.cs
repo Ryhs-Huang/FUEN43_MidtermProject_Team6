@@ -8,10 +8,10 @@ using ReportFilter = BookLoop.Models.ReportFilter;
 namespace BookLoop.Models;
 
 
-public partial class ReportMailDbContext : DbContext
+public partial class ReportDbContext : DbContext
 {
 
-    public ReportMailDbContext(DbContextOptions<ReportMailDbContext> options)
+    public ReportDbContext(DbContextOptions<ReportDbContext> options)
         : base(options)
     {
     }

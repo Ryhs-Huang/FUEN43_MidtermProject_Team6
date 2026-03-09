@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace ReportMail.Areas.ReportMail.Controllers
+namespace Report.Areas.Report.Controllers
 {
-    [Area("ReportMail")]
-    [Route("ReportMail/[controller]/[action]")]
+    [Area("Report")]
+    [Route("Report/[controller]/[action]")]
     public class ReportPreviewController : Controller
     {
         private readonly ShopDbContext _shop;
@@ -66,15 +66,15 @@ namespace ReportMail.Areas.ReportMail.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> PreviewDraft([FromBody] PreviewReq req)
         {
             try
             {
-                // ===== ReportMail DataScope: All / ByPublisher =====
+                // ===== Report DataScope: All / ByPublisher =====
                 var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-                var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
-                var canPub = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.ByPublisher")).Succeeded;
+                var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
+                var canPub = (await auth.AuthorizeAsync(User, "Report.Reports.Data.ByPublisher")).Succeeded;
                 if (!canAll && !canPub) return Forbid();
 
                 // 取書商 supplierId（先讀 claims 的 "supplier"，沒有就查 SUPPLIER_USERS）

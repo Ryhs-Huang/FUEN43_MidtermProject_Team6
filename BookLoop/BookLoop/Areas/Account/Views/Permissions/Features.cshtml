@@ -63,7 +63,7 @@
         var code = f.Code ?? "";
         var (m, _, _) = Parse3(code);
         if (code.StartsWith("Account.", StringComparison.OrdinalIgnoreCase)) return "Account";
-        if (code.StartsWith("ReportMail.", StringComparison.OrdinalIgnoreCase)) return "Reports";
+        if (code.StartsWith("Report.", StringComparison.OrdinalIgnoreCase)) return "Reports";
         if (new[] { "Users", "Permissions", "Members", "Blacklists" }.Contains(m, StringComparer.OrdinalIgnoreCase)) return "Account";
         if (new[] { "Books", "Borrow", "Orders" }.Contains(m, StringComparer.OrdinalIgnoreCase)) return m;
         return "未分組";
@@ -133,7 +133,7 @@
             var accessList = g.Where(f =>
             {
                 var c = f.Code ?? "";
-                if (grpKey.Equals("Reports", StringComparison.OrdinalIgnoreCase)) return c.Equals("ReportMail.Access", StringComparison.OrdinalIgnoreCase);
+                if (grpKey.Equals("Reports", StringComparison.OrdinalIgnoreCase)) return c.Equals("Report.Access", StringComparison.OrdinalIgnoreCase);
                 if (grpKey.Equals("Account", StringComparison.OrdinalIgnoreCase)) return c.Equals("Account.Access", StringComparison.OrdinalIgnoreCase);
                 return c.Equals($"{grpKey}.Access", StringComparison.OrdinalIgnoreCase);
             }).ToList();

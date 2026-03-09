@@ -7,17 +7,17 @@
     // Layout = "~/Views/Shared/_Layout.cshtml";
 
     // === 後端 API ===
-    var apiLine = Url.Action("Line", "Reports", new { area = "ReportMail" }) ?? "#";
-    var apiBar = Url.Action("Bar", "Reports", new { area = "ReportMail" }) ?? "#";
-    var apiPie = Url.Action("Pie", "Reports", new { area = "ReportMail" }) ?? "#";
-    var apiDefPayload = Url.Action("DefinitionPayload", "ReportDefinitions", new { area = "ReportMail" }) ?? "#";
-    var apiPreview = Url.Action("PreviewDraft", "ReportPreview", new { area = "ReportMail" }) ?? "#";
-    var urlLogs = Url.Action("Index", "ExportLogs", new { area = "ReportMail" }) ?? "#";
+    var apiLine = Url.Action("Line", "Reports", new { area = "Report" }) ?? "#";
+    var apiBar = Url.Action("Bar", "Reports", new { area = "Report" }) ?? "#";
+    var apiPie = Url.Action("Pie", "Reports", new { area = "Report" }) ?? "#";
+    var apiDefPayload = Url.Action("DefinitionPayload", "ReportDefinitions", new { area = "Report" }) ?? "#";
+    var apiPreview = Url.Action("PreviewDraft", "ReportPreview", new { area = "Report" }) ?? "#";
+    var urlLogs = Url.Action("Index", "ExportLogs", new { area = "Report" }) ?? "#";
     var canViewLogs = (await Authz.AuthorizeAsync(User, "ReportMail.Logs.Index")).Succeeded;
 
     // 新增/編輯/刪除的頁面
-    var urlCreateDef = Url.Action("Create", "ReportDefinitions", new { area = "ReportMail" }) ?? "#";
-    var urlEditDefBase = Url.Action("Edit", "ReportDefinitions", new { area = "ReportMail" }) ?? "#"; // 之後 + /{id}
+    var urlCreateDef = Url.Action("Create", "ReportDefinitions", new { area = "Report" }) ?? "#";
+    var urlEditDefBase = Url.Action("Edit", "ReportDefinitions", new { area = "Report" }) ?? "#"; // 之後 + /{id}
 
     // === 自訂報表清單 ===
     var lineList = ViewBag.LineReports as IEnumerable<ReportDefinition> ?? Enumerable.Empty<ReportDefinition>();
@@ -33,11 +33,11 @@
     bool canQuery = false, canXlsx = false, canPdf = false;
 
     // 匯出 PDF
-    canXlsx = (await Authz.AuthorizeAsync(User, "ReportMail.Export.Excel")).Succeeded;
+    canXlsx = (await Authz.AuthorizeAsync(User, "Report.Export.Excel")).Succeeded;
     // 匯出 Excel
-    canPdf = (await Authz.AuthorizeAsync(User, "ReportMail.Export.Pdf")).Succeeded;
+    canPdf = (await Authz.AuthorizeAsync(User, "Report.Export.Pdf")).Succeeded;
     // 報表入口
-    canQuery = (await Authz.AuthorizeAsync(User, "ReportMail.Reports.Query")).Succeeded; 
+    canQuery = (await Authz.AuthorizeAsync(User, "Report.Reports.Query")).Succeeded; 
 
 }
 
@@ -301,7 +301,7 @@
 
 <form id="defDeleteForm"
       method="post"
-      action="@Url.Action("Delete", "ReportDefinitions", new { area = "ReportMail" })"
+      action="@Url.Action("Delete", "ReportDefinitions", new { area = "Report" })"
       style="display:none">
     @Html.AntiForgeryToken()
     <input type="hidden" name="id" id="defDeleteId" />
@@ -327,12 +327,12 @@
                 pie: '@apiPie',
                 defPayload: '@apiDefPayload',
                 preview: '@apiPreview',
-                sendExcel: '@Url.Action("SendExcel", "ReportExport", new { area = "ReportMail" })',
-                sendPdf:   '@Url.Action("SendPdf", "ReportExport", new { area = "ReportMail" })'
+                sendExcel: '@Url.Action("SendExcel", "ReportExport", new { area = "Report" })',
+                sendPdf:   '@Url.Action("SendPdf", "ReportExport", new { area = "Report" })'
             },
             urls: {
                 editBase: '@urlEditDefBase',
-                delete:   '@Url.Action("Delete", "ReportDefinitions", new { area = "ReportMail" })'
+                delete:   '@Url.Action("Delete", "ReportDefinitions", new { area = "Report" })'
             },
             titles: {
                 line: '（預設報表）近30日每日銷售金額',

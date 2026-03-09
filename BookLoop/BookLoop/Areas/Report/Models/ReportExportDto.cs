@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace ReportMail.Models.Dto
+namespace Report.Models.Dto
 {
 	public class ReportExportDto
 	{

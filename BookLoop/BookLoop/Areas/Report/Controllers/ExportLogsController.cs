@@ -1,4 +1,4 @@
-﻿using BookLoop.Areas.ReportMail.ViewModels;
+﻿using BookLoop.Areas.Report.ViewModels;
 using BookLoop.Data;
 using BookLoop.Models;
 using BookLoop.Services.Export;
@@ -8,19 +8,19 @@ using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using ReportMail.Areas.ReportMail.Controllers;
-using ReportMail.Models.Dto;                 // 統一使用 Dto 版 ExportSnapshot
+using Report.Areas.Report.Controllers;
+using Report.Models.Dto;                 // 統一使用 Dto 版 ExportSnapshot
 using System.Text.Json;
 
-namespace BookLoop.Areas.ReportMail.Controllers
+namespace BookLoop.Areas.Report.Controllers
 {
-	public class ExportLogsController : ReportMailAreaController
+	public class ExportLogsController : ReportAreaController
     {
-		private readonly ReportMailDbContext _db;
+		private readonly ReportDbContext _db;
 		private readonly ShopDbContext _shop;
 		private readonly IExcelExporter _excel;
 
-		public ExportLogsController(ReportMailDbContext db, ShopDbContext shop, IExcelExporter excel)
+		public ExportLogsController(ReportDbContext db, ShopDbContext shop, IExcelExporter excel)
 		{ _db = db; _shop = shop; _excel = excel; }
 
         [Authorize(Policy = "ReportMail.Logs.Index")]
@@ -35,7 +35,7 @@ namespace BookLoop.Areas.ReportMail.Controllers
 				.AsQueryable();
             // 資料範圍：Admin/Marketing => 全部；否則 Supplier 限縮
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
+            var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
 
             if (!canAll)
             {
@@ -105,7 +105,7 @@ namespace BookLoop.Areas.ReportMail.Controllers
 
             // 再驗證擁有權（和 Download 一致）
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
+            var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
             if (!canAll)
             {
                 var supplierIdClaim = User.FindFirst("supplier")?.Value;
@@ -167,7 +167,7 @@ namespace BookLoop.Areas.ReportMail.Controllers
 			if (log == null) return NotFound();
             // 再驗證擁有權
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
+            var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
             if (!canAll)
             {
                 var supplierIdClaim = User.FindFirst("supplier")?.Value;
@@ -225,7 +225,7 @@ namespace BookLoop.Areas.ReportMail.Controllers
 			if (log == null) return NotFound();
             // 再驗證擁有權
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
+            var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
             if (!canAll)
             {
                 var supplierIdClaim = User.FindFirst("supplier")?.Value;

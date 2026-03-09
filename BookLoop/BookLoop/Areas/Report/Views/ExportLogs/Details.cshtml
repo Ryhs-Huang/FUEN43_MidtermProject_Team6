@@ -1,4 +1,5 @@
-﻿@model ExportLogVM
+﻿@using BookLoop.Areas.Report.ViewModels
+@model ExportLogVM
 @{
     ViewData["Title"] = "匯出紀錄詳情";
     // Layout = "~/Views/Shared/_Layout.cshtml";
@@ -15,7 +16,7 @@
     var downloadUrl = Url.Action(
         isPdf ? "DownloadPdf" : "DownloadExcel",
         "ExportLogs",
-        new { area = "ReportMail", id = Model.ExportID }
+        new { area = "Report", id = Model.ExportID }
     );
 }
 
@@ -25,7 +26,7 @@
     <div class="d-flex flex-column align-items-center gap-2 mb-3">
         <h1 class="h5 mb-0">匯出紀錄 <span class="text-muted">#@Model.ExportID</span></h1>
         <div class="d-flex gap-2">
-            <a class="btn btn-secondary btn-sm" href="@Url.Action("Index", "ExportLogs", new { area = "ReportMail" })">回列表</a>
+            <a class="btn btn-secondary btn-sm" href="@Url.Action("Index", "ExportLogs", new { area = "Report" })">回列表</a>
         </div>
     </div>
 

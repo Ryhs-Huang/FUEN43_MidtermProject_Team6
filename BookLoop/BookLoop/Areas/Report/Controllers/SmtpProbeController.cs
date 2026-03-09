@@ -6,17 +6,17 @@ using MimeKit;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 
-namespace ReportMail.Areas.ReportMail.Controllers
+namespace Report.Areas.Report.Controllers
 {
-	[Area("ReportMail")]
-	[Route("ReportMail/[controller]/[action]")]
+	[Area("Report")]
+	[Route("Report/[controller]/[action]")]
 	public class SmtpProbeController : Controller
 	{
 		private readonly IConfiguration _cfg;
 		public SmtpProbeController(IConfiguration cfg) => _cfg = cfg;
 
 		#if !DEBUG
-		[Authorize(Policy = "ReportMail.Settings.Manage")]
+		[Authorize(Policy = "Report.Settings.Manage")]
 		#endif
         [HttpGet]
 		public async Task<IActionResult> Run(int? port = null)

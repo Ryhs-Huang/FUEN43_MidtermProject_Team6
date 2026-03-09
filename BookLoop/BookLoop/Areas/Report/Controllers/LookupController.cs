@@ -8,15 +8,15 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace ReportMail.Areas.ReportMail.Controllers
+namespace Report.Areas.Report.Controllers
 {
-    public class LookupController : ReportMailAreaController
+    public class LookupController : ReportAreaController
     {
         private readonly ShopDbContext _shop;
         public LookupController(ShopDbContext shop) => _shop = shop;
 
         [HttpGet]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> Categories(string? kind, [FromQuery(Name = "baseKind")] string? baseKind,
                                             DateTime? start, DateTime? end)
         {
@@ -77,7 +77,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         // 依「所選日期區間」+「已選書籍種類」回傳排行上限：
         //   sales → distinct BookID；borrow → distinct ListingID（用 Listings.CategoryID 篩）
         [HttpPost]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> MaxRank([FromBody] MaxRankRequest req)
         {
             var (canAll, mySupplierId) = await GetScopeAsync();
@@ -203,7 +203,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         private async Task<(bool canAll, int? mySupplierId)> GetScopeAsync()
         {
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
+            var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
             if (canAll) return (true, null);
 
             var s = User.FindFirst("supplier")?.Value;

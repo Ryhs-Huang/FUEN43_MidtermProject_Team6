@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BookLoop.Models
 {
-    public partial class ReportMailDbContext
+    public partial class ReportDbContext
     {
         public override int SaveChanges()
         {

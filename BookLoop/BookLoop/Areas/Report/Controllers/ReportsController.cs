@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using System.Security.Claims; // 引用 ClaimTypes
 
 
-namespace ReportMail.Areas.ReportMail.Controllers
+namespace Report.Areas.Report.Controllers
 {
     /// <summary>
     /// 報表主頁 + 三張「預設」不可編輯的報表 API。
@@ -22,19 +22,19 @@ namespace ReportMail.Areas.ReportMail.Controllers
     ///
     /// ※ 自訂報表（ReportDefinition/ReportFilter）另做 CRUD 與對應 API，不混在這支。
     /// </summary>
-    [Area("ReportMail")]
-    [Authorize(Policy = "ReportMail.Access")]
-    // 讓 URL 穩定為 /ReportMail/Reports/{Action}
-    [Route("ReportMail/[controller]/[action]")]
+    [Area("Report")]
+    [Authorize(Policy = "Report.Access")]
+    // 讓 URL 穩定為 /Report/Reports/{Action}
+    [Route("Report/[controller]/[action]")]
     public class ReportsController : Controller
     {
         private readonly IReportDataService _svc;
-        private readonly ReportMailDbContext _db;
+        private readonly ReportDbContext _db;
         private readonly ShopDbContext _shop;
         private readonly IAuthorizationService _authService;
 
 
-        public ReportsController(IReportDataService svc, ReportMailDbContext db, ShopDbContext shop, IAuthorizationService authService)
+        public ReportsController(IReportDataService svc, ReportDbContext db, ShopDbContext shop, IAuthorizationService authService)
         {
             _svc = svc;
             _db = db;
@@ -43,7 +43,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         }
 
 
-        [HttpGet("/ReportMail/Reports/whoami")]
+        [HttpGet("/Report/Reports/whoami")]
         [Authorize] // 只要求登入，不套報表 Policy
         public IActionResult WhoAmI()
         {
@@ -55,14 +55,14 @@ namespace ReportMail.Areas.ReportMail.Controllers
 
         /// <summary>
         /// 主頁（一次顯示三張預設圖）。
-        /// View：Areas/ReportMail/Views/Reports/Index.cshtml
+        /// View：Areas/Report/Views/Reports/Index.cshtml
         /// </summary>
         [HttpGet]
-        [Route("/ReportMail/Reports")]
+        [Route("/Report/Reports")]
         public async Task<IActionResult> Index()
         {
             List<ReportDefinition> accessibleDefinitions;
-            var canViewAny = (await _authService.AuthorizeAsync(User, "ReportMail.Reports.Def.ViewAny")).Succeeded;
+            var canViewAny = (await _authService.AuthorizeAsync(User, "Report.Reports.Def.ViewAny")).Succeeded;
 
             if (canViewAny)
             {
@@ -89,7 +89,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
             }
             else
             {
-                var canViewOwn = (await _authService.AuthorizeAsync(User, "ReportMail.Reports.Def.ViewOwn")).Succeeded;
+                var canViewOwn = (await _authService.AuthorizeAsync(User, "Report.Reports.Def.ViewOwn")).Succeeded;
                 if (canViewOwn)
                 {
                     var myId = CurrentUserIdOrNull(); // 使用輔助方法
@@ -140,7 +140,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         /// </summary>
         [HttpGet]
         [Produces("application/json")]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> Line(
             DateTime? from,              // 起日（yyyy-MM-dd），未給則 = 今天往前 29 天
             DateTime? to,                // 迄日（yyyy-MM-dd），未給則 = 今天
@@ -200,7 +200,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         /// </summary>
         [HttpGet]
         [Produces("application/json")]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> Bar(
             DateTime? from,
             DateTime? to,
@@ -229,7 +229,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         /// </summary>
         [HttpGet]
         [Produces("application/json")]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> Pie(
             DateTime? from,
             DateTime? to,
@@ -251,8 +251,8 @@ namespace ReportMail.Areas.ReportMail.Controllers
         }
 
 #if DEBUG
-        [HttpGet("/ReportMail/Reports/diag")]
-        [Authorize(Policy = "ReportMail.Reports.Query")]
+        [HttpGet("/Report/Reports/diag")]
+        [Authorize(Policy = "Report.Reports.Query")]
         public async Task<IActionResult> Diag(DateTime? from, DateTime? to, [FromQuery] int[]? excludeStatuses = null)
         {
             // 1) 日期：統一半開區間 [start, endExclusive)
@@ -349,7 +349,7 @@ namespace ReportMail.Areas.ReportMail.Controllers
         {
             // 有 Data.All => 回傳 null 代表「不加限制」
             var auth = HttpContext.RequestServices.GetRequiredService<IAuthorizationService>();
-            var canAll = (await auth.AuthorizeAsync(User, "ReportMail.Reports.Data.All")).Succeeded;
+            var canAll = (await auth.AuthorizeAsync(User, "Report.Reports.Data.All")).Succeeded;
             if (canAll) return null;
 
             // 沒有 Data.All => 依使用者 supplier claim 取 SupplierID

@@ -4,14 +4,14 @@
     ViewData["Title"] = "編輯報表";
     // Layout = "~/Views/Shared/_Layout.cshtml";
 
-    var previewUrl = Url.Action("PreviewDraft", "ReportPreview", new { area = "ReportMail" }) ?? "#";
-    var catsUrl = Url.Action("Categories", "Lookup", new { area = "ReportMail" }) ?? "#";
-    var defUrl = Url.Action("DefinitionPayload", "ReportDefinitions", new { area = "ReportMail", id = Model.ReportDefinitionID }) ?? "#";
+    var previewUrl = Url.Action("PreviewDraft", "ReportPreview", new { area = "Report" }) ?? "#";
+    var catsUrl = Url.Action("Categories", "Lookup", new { area = "Report" }) ?? "#";
+    var defUrl = Url.Action("DefinitionPayload", "ReportDefinitions", new { area = "Report", id = Model.ReportDefinitionID }) ?? "#";
 }
 
 <div class="d-flex align-items-center mb-3 mt-4">
     <h1 class="h3 mb-0">編輯報表</h1>
-    <a href="@Url.Action("Index", "Reports", new { area = "ReportMail" })"
+    <a href="@Url.Action("Index", "Reports", new { area = "Report" })"
        class="btn btn-outline-secondary btn-sm px-3 py-1 rounded-1 ms-2">返回</a>
 </div>
 
@@ -205,7 +205,7 @@
     <script>
         window.__API_PREVIEW__ = "@previewUrl";
         window.__API_CATS__    = "@catsUrl";
-        window.__API_MAXRANK__ = "@Url.Action("MaxRank", "Lookup", new { area = "ReportMail" })";
+        window.__API_MAXRANK__ = "@Url.Action("MaxRank", "Lookup", new { area = "Report" })";
         window.__DEF_URL__     = "@defUrl";   // 只有編輯頁需要
     </script>
 

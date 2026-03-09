@@ -311,13 +311,13 @@ namespace Account.Controllers
 			static string ModuleOf(string? code)
 				=> string.IsNullOrWhiteSpace(code) ? "Other" : code.Split('.', 2)[0];
 
-			static bool IsReportMail(string? code)
-				=> code?.StartsWith("ReportMail.", StringComparison.OrdinalIgnoreCase) == true;
+			static bool IsReport(string? code)
+				=> code?.StartsWith("Report.", StringComparison.OrdinalIgnoreCase) == true;
 
 			static string GroupOf(string? code)
 			{
 				var m = ModuleOf(code);
-				if (IsReportMail(code)) return "Reports";
+				if (IsReport(code)) return "Reports";
 				return m switch
 				{
 					"Users" or "Permissions" or "Members" or "Blacklists" => "Account",

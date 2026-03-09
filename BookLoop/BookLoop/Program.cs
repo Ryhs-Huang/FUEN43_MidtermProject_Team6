@@ -64,9 +64,9 @@ namespace BookLoop
 			builder.Services.AddDbContext<BorrowContext>(options =>
 				options.UseSqlServer(bookloopStr));
 
-			builder.Services.AddDbContext<ReportMailDbContext>(options =>
+			builder.Services.AddDbContext<ReportDbContext>(options =>
 				options.UseSqlServer(bookloopStr,
-					x => x.MigrationsAssembly(typeof(ReportMailDbContext).Assembly.FullName)));
+					x => x.MigrationsAssembly(typeof(ReportDbContext).Assembly.FullName)));
 
 			builder.Services.AddDbContext<ShopDbContext>(options =>
 				options.UseSqlServer(bookloopStr));

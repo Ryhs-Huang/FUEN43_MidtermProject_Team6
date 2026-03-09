@@ -11,7 +11,7 @@ namespace BookLoop.Controllers
 		private readonly OrdersysContext? _orderDb;
 		private readonly MemberContext? _memberDb;
 		private readonly BorrowContext? _borrowDb;
-		private readonly ReportMailDbContext? _mailDb;
+		private readonly ReportDbContext? _mailDb;
 
 		public SearchController(IServiceProvider sp)
 		{
@@ -19,7 +19,7 @@ namespace BookLoop.Controllers
 			_orderDb = sp.GetService<OrdersysContext>();
 			_memberDb = sp.GetService<MemberContext>();
 			_borrowDb = sp.GetService<BorrowContext>();
-			_mailDb = sp.GetService<ReportMailDbContext>();
+			_mailDb = sp.GetService<ReportDbContext>();
 		}
 
 		[HttpGet]
