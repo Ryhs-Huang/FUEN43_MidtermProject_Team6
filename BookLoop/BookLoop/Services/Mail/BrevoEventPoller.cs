@@ -156,8 +156,10 @@ public class BrevoEventPoller : BackgroundService
 							//收集這 50 筆中所有的 Email 與 MessageId
 							var emails = arr.Select(e => e.TryGetProperty("email", out var em) ? em.GetString() : null)
 										.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
-							var mids = arr.Select(e => NormalizeMsgId(e.TryGetProperty("messageId", out var m) ? m.GetString() : null))
-										  .Where(m => !string.IsNullOrEmpty(m)).ToList();
+							var mids = arr.Select(e => NormalizeMsgId(
+										e.TryGetProperty("messageId", out var m) ? m.GetString() :
+										e.TryGetProperty("message-id",out var m2) ? m2.GetString():null))
+										.Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList();
 
 							//一次抓出所有相關 Log（動態計算抓取範圍）
 							var fetchStart = startLocal.AddDays(-3);
