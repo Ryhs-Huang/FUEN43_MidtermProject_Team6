@@ -149,138 +149,180 @@ public class BrevoEventPoller : BackgroundService
 							}).ToArray();
 							_logger.LogInformation("[DBG] Brevo sample events: {Samples}", JsonSerializer.Serialize(samples));
 						}
+                        int pageFetched = 0, matchedLog = 0, missLog = 0, missJr = 0, dup = 0, inserted = 0;
 
-						int pageFetched = 0, matchedLog = 0, missLog = 0, missJr = 0, dup = 0, inserted = 0;
-						
-						foreach (var e in arr)
+						if (arr.Length > 0)
 						{
-							pageFetched++;
+							//收集這 50 筆中所有的 Email 與 MessageId
+							var emails = arr.Select(e => e.TryGetProperty("email", out var em) ? em.GetString() : null)
+										.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
+							var mids = arr.Select(e => NormalizeMsgId(e.TryGetProperty("messageId", out var m) ? m.GetString() : null))
+										  .Where(m => !string.IsNullOrEmpty(m)).ToList();
 
-							var evt = e.TryGetProperty("event", out var evJ) ? evJ.GetString() : null;
-							if (evt is null) continue;
+							//一次抓出所有相關 Log（動態計算抓取範圍）
+							var fetchStart = startLocal.AddDays(-3);
+							var allLogs = await db.MailSendLogs.AsNoTracking()
+								.Where(x => x.SentAt >= fetchStart)
+								.Where(x => emails.Contains(x.Recipient) || mids.Contains(x.ProviderMsgId))
+								.ToListAsync();
 
-							var dateStr = e.TryGetProperty("date", out var dJ) ? dJ.GetString() : null;
-							var createdLocal = ParseBrevoDate(dateStr);
+							//建立記憶體索引
+							var logById = allLogs.Where(x => !string.IsNullOrEmpty(x.ProviderMsgId))
+												 .ToDictionary(x => x.ProviderMsgId!, x => x);
+							var logByEmail = allLogs.GroupBy(x => x.Recipient)
+													.ToDictionary(g => g.Key!, g => g.OrderByDescending(x => x.SentAt).ToList());
 
-                            // 本地端二次過濾：Brevo API 的日期篩選顆粒度較粗 (以日為單位)，所以程式須手動過濾掉小於游標的細節時間
-                            if (createdLocal <= startLocal) continue;
-
-							var email = e.TryGetProperty("email", out var emJ) ? emJ.GetString() : null;
-
-                            // 處理 Brevo 不同時期或 API 版本中 MessageId 的鍵名差異
-                            string? messageId = null;
-							if (e.TryGetProperty("messageId", out var midJ)) messageId = midJ.GetString();
-							else if (e.TryGetProperty("message-id", out var mid2J)) messageId = mid2J.GetString();
-							var normMid = NormalizeMsgId(messageId);
-
-                            // 讀取其他環境資訊（點擊連結、瀏覽器 Agent、IP）
-                            var urlClicked = e.TryGetProperty("url", out var urlJ) ? urlJ.GetString() : null;
-							var ua = e.TryGetProperty("userAgent", out var uaJ) ? uaJ.GetString() : null;
-							var ip = e.TryGetProperty("ip", out var ipJ) ? ipJ.GetString() : null;
-
-                            // 強化匹配策略：將外部事件匹配回系統內部的發信紀錄
-                            MailSendLog? log = null;
-
-                            // a) 先以 ProviderMsgId（正規化）嘗試精準比對
-                            if (!string.IsNullOrWhiteSpace(normMid))
+							foreach (var e in arr)
 							{
-                                log = await db.MailSendLogs.AsNoTracking()
-                                    .Where(x => x.SentAt >= createdLocal.AddDays(-3))
-                                    .FirstOrDefaultAsync(x => x.ProviderMsgId.Contains(normMid), stoppingToken);
-                            }
+								pageFetched++;
 
-							// b) 以 Email + 時間窗（-72h ~ +24h），取最接近 createdLocal 的一封
-							if (log == null && !string.IsNullOrWhiteSpace(email))
-							{
-                                log = await db.MailSendLogs.AsNoTracking()
-                                    .Where(x => x.Recipient == email && x.SentAt >= createdLocal.AddHours(-72) && x.SentAt <= createdLocal.AddHours(24))
-                                    .OrderBy(x => Math.Abs((x.SentAt - createdLocal).TotalSeconds))
-                                    .FirstOrDefaultAsync(stoppingToken);
-                            }
+								var evt = e.TryGetProperty("event", out var evJ) ? evJ.GetString() : null;
+								if (evt is null) continue;
 
-                            // c) 最後保底：Email 最近一封發信紀錄
-                            if (log == null && !string.IsNullOrWhiteSpace(email))
-							{
-								log = await db.MailSendLogs.AsNoTracking()
-									.Where(x => x.Recipient == email)
-									.OrderByDescending(x => x.SentAt)
-									.FirstOrDefaultAsync(stoppingToken);
+								var dateStr = e.TryGetProperty("date", out var dJ) ? dJ.GetString() : null;
+								var createdLocal = ParseBrevoDate(dateStr);
+
+								// 本地端二次過濾：Brevo API 的日期篩選顆粒度較粗 (以日為單位)，所以程式須手動過濾掉小於游標的細節時間
+								if (createdLocal <= startLocal) continue;
+
+								var email = e.TryGetProperty("email", out var emJ) ? emJ.GetString() : null;
+
+								// 處理 Brevo 不同時期或 API 版本中 MessageId 的鍵名差異
+								string? messageId = null;
+								if (e.TryGetProperty("messageId", out var midJ)) messageId = midJ.GetString();
+								else if (e.TryGetProperty("message-id", out var mid2J)) messageId = mid2J.GetString();
+								var normMid = NormalizeMsgId(messageId);
+
+								// 讀取其他環境資訊（點擊連結、瀏覽器 Agent、IP）
+								var urlClicked = e.TryGetProperty("url", out var urlJ) ? urlJ.GetString() : null;
+								var ua = e.TryGetProperty("userAgent", out var uaJ) ? uaJ.GetString() : null;
+								var ip = e.TryGetProperty("ip", out var ipJ) ? ipJ.GetString() : null;
+
+								// 強化匹配策略：將外部事件匹配回系統內部的發信紀錄
+								MailSendLog? log = null;
+
+								//// a) 先以 providermsgid（正規化）嘗試精準比對
+								//if (!string.isnullorwhitespace(normmid))
+								//{
+								//	log = await db.mailsendlogs.asnotracking()
+								//		.where(x => x.sentat >= createdlocal.adddays(-3))
+								//		.firstordefaultasync(x => x.providermsgid.contains(normmid), stoppingtoken);
+								//}
+
+								//// b) 以 email + 時間窗（-72h ~ +24h），取最接近 createdlocal 的一封
+								//if (log == null && !string.isnullorwhitespace(email))
+								//{
+								//	log = await db.mailsendlogs.asnotracking()
+								//		.where(x => x.recipient == email && x.sentat >= createdlocal.addhours(-72) && x.sentat <= createdlocal.addhours(24))
+								//		.orderby(x => math.abs((x.sentat - createdlocal).totalseconds))
+								//		.firstordefaultasync(stoppingtoken);
+								//}
+
+								//// c) 最後保底：email 最近一封發信紀錄
+								//if (log == null && !string.isnullorwhitespace(email))
+								//{
+								//	log = await db.mailsendlogs.asnotracking()
+								//		.where(x => x.recipient == email)
+								//		.orderbydescending(x => x.sentat)
+								//		.firstordefaultasync(stoppingtoken);
+								//}
+
+								// a) 從 ID 地圖找 (精準)
+								if (!string.IsNullOrEmpty(normMid))
+								{
+									logById.TryGetValue(normMid, out log);
+								}
+
+								// b) 從 Email 地圖找 (時間窗最接近)
+								if (log == null && !string.IsNullOrEmpty(email) && logByEmail.TryGetValue(email, out var userLogs))
+								{
+									// 在記憶體清單中找時間最接近的那封
+									log = userLogs.Where(x => x.SentAt >= createdLocal.AddHours(-72) && x.SentAt <= createdLocal.AddHours(24))
+												  .OrderBy(x => Math.Abs((x.SentAt - createdLocal).TotalSeconds))
+												  .FirstOrDefault();
+								}
+
+								// c) 保底：Email 最近一封
+								if (log == null && !string.IsNullOrEmpty(email) && logByEmail.TryGetValue(email, out var userLogs2))
+								{
+									log = userLogs2.FirstOrDefault(); // 建立 Dictionary 時已經排過序了
+								}
+
+								// 若最終還是找不到匹配紀錄，視為無效事件並記錄警告
+								if (log == null)
+								{
+									missLog++;
+									_logger.LogWarning("[Brevo] MissLog evt={Evt} email={Email} date={Date} msgId={MsgId}",
+										evt, email, createdLocal, messageId);
+									continue;
+								}
+
+								matchedLog++;
+
+								// 檢查關聯日誌中是否有關聯到具體的收件人 JobRecipientId
+								if (log.JobRecipientId == null)
+								{
+									missJr++;
+									_logger.LogWarning("[Brevo] Log found but JobRecipientId is null. logId={LogId} email={Email} sentAt={SentAt}",
+										log.LogId, log.Recipient, log.SentAt);
+									continue;
+								}
+
+								// 獲取具體的收件人工作狀態紀錄
+								var jr = await db.MailJobRecipients
+									.FirstOrDefaultAsync(x => x.MailJobRecipientId == log.JobRecipientId.Value, stoppingToken);
+								if (jr == null)
+								{
+									missJr++;
+									_logger.LogWarning("[Brevo] JR not found. jobRecipientId={JRId} logId={LogId}", log.JobRecipientId, log.LogId);
+									continue;
+								}
+
+								bool isOpen = evt.Equals("opened", StringComparison.OrdinalIgnoreCase) || evt.Equals("open", StringComparison.OrdinalIgnoreCase);
+								bool isClick = evt.Equals("clicks", StringComparison.OrdinalIgnoreCase) || evt.Equals("click", StringComparison.OrdinalIgnoreCase);
+
+								var newEvent = new MailEvent
+								{
+									MailJobId = jr.MailJobId,
+									JobRecipientId = jr.MailJobRecipientId,
+									LogId = log.LogId,
+									EventType = isClick ? "Click" : "Open",
+									Url = isClick ? urlClicked : null,
+									UserAgent = ua,
+									Ip = ip,
+									CreatedAt = createdLocal
+								};
+
+								// 去重：JR + Type + Url + (CreatedAt ±2s)
+								var createdMin = createdLocal.AddSeconds(-2);
+								var createdMax = createdLocal.AddSeconds(+2);
+
+								var isDup = await db.MailEvents.AnyAsync(x =>
+									x.JobRecipientId == newEvent.JobRecipientId &&
+									x.EventType == newEvent.EventType &&
+									(newEvent.Url == null || x.Url == newEvent.Url) &&
+									x.CreatedAt >= createdMin && x.CreatedAt <= createdMax, stoppingToken);
+
+								if (isDup) { dup++; continue; }
+
+								await db.MailEvents.AddAsync(newEvent, stoppingToken);
+
+								if (isOpen)
+								{
+									if (jr.OpenCount == 0) jr.OpenedAt = createdLocal;
+									jr.OpenCount += 1;
+								}
+								if (isClick)
+								{
+									jr.ClickCount += 1;
+									jr.LastClickAt = createdLocal;
+								}
+
+								inserted++;
+								totalProcessed++;
 							}
 
-                            // 若最終還是找不到匹配紀錄，視為無效事件並記錄警告
-                            if (log == null)
-							{
-								missLog++;
-								_logger.LogWarning("[Brevo] MissLog evt={Evt} email={Email} date={Date} msgId={MsgId}",
-									evt, email, createdLocal, messageId);
-								continue;
-							}
-
-							matchedLog++;
-
-                            // 檢查關聯日誌中是否有關聯到具體的收件人 JobRecipientId
-                            if (log.JobRecipientId == null)
-							{
-								missJr++;
-								_logger.LogWarning("[Brevo] Log found but JobRecipientId is null. logId={LogId} email={Email} sentAt={SentAt}",
-									log.LogId, log.Recipient, log.SentAt);
-								continue;
-							}
-
-                            // 獲取具體的收件人工作狀態紀錄
-                            var jr = await db.MailJobRecipients
-								.FirstOrDefaultAsync(x => x.MailJobRecipientId == log.JobRecipientId.Value, stoppingToken);
-							if (jr == null)
-							{
-								missJr++;
-								_logger.LogWarning("[Brevo] JR not found. jobRecipientId={JRId} logId={LogId}", log.JobRecipientId, log.LogId);
-								continue;
-							}
-
-							bool isOpen = evt.Equals("opened", StringComparison.OrdinalIgnoreCase) || evt.Equals("open", StringComparison.OrdinalIgnoreCase);
-							bool isClick = evt.Equals("clicks", StringComparison.OrdinalIgnoreCase) || evt.Equals("click", StringComparison.OrdinalIgnoreCase);
-
-							var newEvent = new MailEvent
-							{
-								MailJobId = jr.MailJobId,
-								JobRecipientId = jr.MailJobRecipientId,
-								LogId = log.LogId,
-								EventType = isClick ? "Click" : "Open",
-								Url = isClick ? urlClicked : null,
-								UserAgent = ua,
-								Ip = ip,
-								CreatedAt = createdLocal
-							};
-
-							// 去重：JR + Type + Url + (CreatedAt ±2s)
-							var createdMin = createdLocal.AddSeconds(-2);
-							var createdMax = createdLocal.AddSeconds(+2);
-
-							var isDup = await db.MailEvents.AnyAsync(x =>
-								x.JobRecipientId == newEvent.JobRecipientId &&
-								x.EventType == newEvent.EventType &&
-								(newEvent.Url == null || x.Url == newEvent.Url) &&
-								x.CreatedAt >= createdMin && x.CreatedAt <= createdMax, stoppingToken);
-
-							if (isDup) { dup++; continue; }
-
-							await db.MailEvents.AddAsync(newEvent, stoppingToken);
-
-							if (isOpen)
-							{
-								if (jr.OpenCount == 0) jr.OpenedAt = createdLocal;
-								jr.OpenCount += 1;
-							}
-							if (isClick)
-							{
-								jr.ClickCount += 1;
-								jr.LastClickAt = createdLocal;
-							}
-
-							inserted++;
-							totalProcessed++;
 						}
-
                         // 每一頁處理完執行一次 SaveChanges，降低長時間鎖表的風險
                         await db.SaveChangesAsync(stoppingToken);
 
@@ -345,10 +387,20 @@ public class BrevoEventPoller : BackgroundService
 	/// /// </summary>
     private static string? NormalizeMsgId(string? s)
 	{
-		if (string.IsNullOrWhiteSpace(s)) return null;
-		s = s.Trim().Trim('<', '>', ' ', '\t', '\r', '\n');
-		return s.ToLowerInvariant();
-	}
+		if (string.IsNullOrWhiteSpace(s))return null;
+
+        //定義要過濾的字元陣列
+        ReadOnlySpan<char> trimChars = stackalloc char[] { '<', '>', ' ', '\t', '\r', '\n' };
+
+        //Span進行多重字元過濾
+        ReadOnlySpan<char> span = s.AsSpan().Trim(trimChars);
+
+        //如果過濾完變成空，也視為無效 ID
+        if (span.IsEmpty) return null;
+
+        //最終轉換為小寫字串
+        return span.ToString().ToLowerInvariant();
+    }
 
 
     /// <summary>
