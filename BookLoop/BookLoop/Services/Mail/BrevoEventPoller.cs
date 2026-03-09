@@ -23,8 +23,8 @@ public class BrevoEventPoller : BackgroundService
 	{
 		_logger = logger;
 		_cfg = cfg;
-		_sp = sp;
-	}
+		_sp = sp;// 注入服務工廠，用來在 Singleton 中產生 Scoped 的 AppDbContext
+    }
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
@@ -38,29 +38,23 @@ public class BrevoEventPoller : BackgroundService
 			return;
 		}
 
-		while (!stoppingToken.IsCancellationRequested)
+        // 主迴圈：只要 stoppingToken 沒被觸發(網站沒關閉)，就持續運行
+        while (!stoppingToken.IsCancellationRequested)
 		{
 			try
 			{
-				using var scope = _sp.CreateScope();
+                // 建立手動 Scope，確保 AppDbContext 能夠在背景服務中正確使用並釋放
+                using var scope = _sp.CreateScope();
 				var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-				// DBG: 確認連到哪個 DB
-				try
-				{
-					var cnn = db.Database.GetDbConnection();
-					_logger.LogInformation("[DBG] DB={Db} DataSource={Src}", cnn.Database, cnn.DataSource);
-				}
-				catch { /* ignore */ }
-
-				// 以「本地時間」作為游標
-				var cursor = await db.IntegrationCursors.AsNoTracking()
+                // 游標管理 (Cursor)：讀取上次同步成功的時間點，防止重複抓取或漏抓
+                var cursor = await db.IntegrationCursors.AsNoTracking()
 					.FirstOrDefaultAsync(x => x.CursorKey == "Brevo:Events", stoppingToken);
 
 				var startLocal = cursor?.CursorTime ?? DateTime.Now.AddMinutes(-lookback);
 				var endLocal = DateTime.Now;
 
-				// Brevo 只吃日期字串 → endDate +1 天避免跨日漏抓
+				// Brevo API 要求格式日期字串
 				var startDate = startLocal.ToString("yyyy-MM-dd");
 				var endDate = DateTime.Now.ToString("yyyy-MM-dd");
 
@@ -72,11 +66,12 @@ public class BrevoEventPoller : BackgroundService
 
 				var baseUrl = "https://api.brevo.com/v3/smtp/statistics/events";
 
-				var limit = 50;
-				var totalProcessed = 0;
+				var limit = 50; // 每頁抓取筆數
+                var totalProcessed = 0;
 				var successThisRound = false;
 
-				foreach (var ev in eventsToFetch)
+                // 針對開信與點擊兩種事件分別進行分頁抓取
+                foreach (var ev in eventsToFetch)
 				{
 					var offset = 0;
 					var pageIdx = 0;
@@ -86,7 +81,9 @@ public class BrevoEventPoller : BackgroundService
 						var url = $"{baseUrl}?event={ev}&startDate={startDate}&endDate={endDate}&limit={limit}&offset={offset}&sort=asc";
 
 						HttpResponseMessage resp = null!;
-						for (int attempt = 0; attempt < 4; attempt++)
+
+                        // 指數退避重試 (Exponential Backoff)：處理 API 頻率限制 (429) 或伺服器錯誤 (5xx)
+                        for (int attempt = 0; attempt < 4; attempt++)
 						{
 							try
 							{
@@ -101,7 +98,7 @@ public class BrevoEventPoller : BackgroundService
 									await Task.Delay(backoffMs, stoppingToken);
 									continue;
 								}
-
+								
 								if (!resp.IsSuccessStatusCode)
 								{
 									var body = await resp.Content.ReadAsStringAsync(stoppingToken);
@@ -114,7 +111,8 @@ public class BrevoEventPoller : BackgroundService
 							}
 							catch (TaskCanceledException) when (!stoppingToken.IsCancellationRequested)
 							{
-								var backoffMs = (int)(Math.Pow(2, attempt) * 600) + Random.Shared.Next(0, 400);
+                                //處理 HttpClient 超時，給予緩衝後重試
+                                var backoffMs = (int)(Math.Pow(2, attempt) * 600) + Random.Shared.Next(0, 400);
 								_logger.LogWarning("Brevo events timeout. retry in {Delay}ms. Url={Url}", backoffMs, url);
 								await Task.Delay(backoffMs, stoppingToken);
 							}
@@ -123,18 +121,20 @@ public class BrevoEventPoller : BackgroundService
 						if (resp is null || !resp.IsSuccessStatusCode)
 						{
 							_logger.LogWarning("Brevo events fetch failed after retries. Url={Url}", url);
-							break; // 不推進游標
-						}
+							break; // 請求失敗時跳出當前事件類型，不更新游標時間
+                        }
 
-						var json = await resp.Content.ReadAsStringAsync(stoppingToken);
-						using var doc = JsonDocument.Parse(json);
-						var root = doc.RootElement;
+                        // 解析 JSON 事件陣列
+                        var json = await resp.Content.ReadAsStringAsync(stoppingToken);//把網路回傳的二進位內容轉換成String
+                        using var doc = JsonDocument.Parse(json);//將String轉換為可供查詢的記憶體物件結構
+                        var root = doc.RootElement;//取得 JSON 文件的「根部」
 
-						var arr = root.TryGetProperty("events", out var je) && je.ValueKind == JsonValueKind.Array
+                        // 將 JSON 陣列轉換為 .NET 可迭代的 JsonElement 陣列
+                        var arr = root.TryGetProperty("events", out var je) && je.ValueKind == JsonValueKind.Array
 							? je.EnumerateArray().ToArray()
 							: Array.Empty<JsonElement>();
-
-						if (pageIdx == 0)
+                        // 每種類型的第一頁輸出採樣數據到日誌，方便除錯確認欄位內容
+                        if (pageIdx == 0)
 						{
 							var samples = arr.Take(3).Select(e => new
 							{
@@ -151,7 +151,7 @@ public class BrevoEventPoller : BackgroundService
 						}
 
 						int pageFetched = 0, matchedLog = 0, missLog = 0, missJr = 0, dup = 0, inserted = 0;
-
+						
 						foreach (var e in arr)
 						{
 							pageFetched++;
@@ -162,54 +162,44 @@ public class BrevoEventPoller : BackgroundService
 							var dateStr = e.TryGetProperty("date", out var dJ) ? dJ.GetString() : null;
 							var createdLocal = ParseBrevoDate(dateStr);
 
-							// 本地端二次過濾：只處理「大於游標」的事件
-							if (createdLocal <= startLocal) continue;
+                            // 本地端二次過濾：Brevo API 的日期篩選顆粒度較粗 (以日為單位)，所以程式須手動過濾掉小於游標的細節時間
+                            if (createdLocal <= startLocal) continue;
 
 							var email = e.TryGetProperty("email", out var emJ) ? emJ.GetString() : null;
 
-							string? messageId = null;
+                            // 處理 Brevo 不同時期或 API 版本中 MessageId 的鍵名差異
+                            string? messageId = null;
 							if (e.TryGetProperty("messageId", out var midJ)) messageId = midJ.GetString();
 							else if (e.TryGetProperty("message-id", out var mid2J)) messageId = mid2J.GetString();
 							var normMid = NormalizeMsgId(messageId);
 
-							var urlClicked = e.TryGetProperty("url", out var urlJ) ? urlJ.GetString() : null;
+                            // 讀取其他環境資訊（點擊連結、瀏覽器 Agent、IP）
+                            var urlClicked = e.TryGetProperty("url", out var urlJ) ? urlJ.GetString() : null;
 							var ua = e.TryGetProperty("userAgent", out var uaJ) ? uaJ.GetString() : null;
 							var ip = e.TryGetProperty("ip", out var ipJ) ? ipJ.GetString() : null;
 
-							// 強化匹配策略
-							MailSendLog? log = null;
+                            // 強化匹配策略：將外部事件匹配回系統內部的發信紀錄
+                            MailSendLog? log = null;
 
-							// a) 先以 ProviderMsgId（正規化）嘗試
-							if (!string.IsNullOrWhiteSpace(normMid))
+                            // a) 先以 ProviderMsgId（正規化）嘗試精準比對
+                            if (!string.IsNullOrWhiteSpace(normMid))
 							{
-								var candidates = await db.MailSendLogs.AsNoTracking()
-									.Where(x => x.SentAt >= createdLocal.AddDays(-3) && x.SentAt <= createdLocal.AddDays(1))
-									.OrderByDescending(x => x.SentAt)
-									.Take(200)
-									.ToListAsync(stoppingToken);
+                                log = await db.MailSendLogs.AsNoTracking()
+                                    .Where(x => x.SentAt >= createdLocal.AddDays(-3))
+                                    .FirstOrDefaultAsync(x => x.ProviderMsgId.Contains(normMid), stoppingToken);
+                            }
 
-								log = candidates.FirstOrDefault(x => NormalizeMsgId(x.ProviderMsgId) == normMid);
-							}
-
-							// b) 再以 Email + 時間窗（-72h ~ +24h），取最接近 createdLocal 的一封
+							// b) 以 Email + 時間窗（-72h ~ +24h），取最接近 createdLocal 的一封
 							if (log == null && !string.IsNullOrWhiteSpace(email))
 							{
-								var min = createdLocal.AddHours(-72);
-								var max = createdLocal.AddHours(+24);
+                                log = await db.MailSendLogs.AsNoTracking()
+                                    .Where(x => x.Recipient == email && x.SentAt >= createdLocal.AddHours(-72) && x.SentAt <= createdLocal.AddHours(24))
+                                    .OrderBy(x => Math.Abs((x.SentAt - createdLocal).TotalSeconds))
+                                    .FirstOrDefaultAsync(stoppingToken);
+                            }
 
-								var list = await db.MailSendLogs.AsNoTracking()
-									.Where(x => x.Recipient == email && x.SentAt >= min && x.SentAt <= max)
-									.OrderByDescending(x => x.SentAt)
-									.Take(300)
-									.ToListAsync(stoppingToken);
-
-								log = list
-									.OrderBy(x => Math.Abs((x.SentAt - createdLocal).TotalSeconds))
-									.FirstOrDefault();
-							}
-
-							// c) 最後保底：Email 最近一封
-							if (log == null && !string.IsNullOrWhiteSpace(email))
+                            // c) 最後保底：Email 最近一封發信紀錄
+                            if (log == null && !string.IsNullOrWhiteSpace(email))
 							{
 								log = await db.MailSendLogs.AsNoTracking()
 									.Where(x => x.Recipient == email)
@@ -217,7 +207,8 @@ public class BrevoEventPoller : BackgroundService
 									.FirstOrDefaultAsync(stoppingToken);
 							}
 
-							if (log == null)
+                            // 若最終還是找不到匹配紀錄，視為無效事件並記錄警告
+                            if (log == null)
 							{
 								missLog++;
 								_logger.LogWarning("[Brevo] MissLog evt={Evt} email={Email} date={Date} msgId={MsgId}",
@@ -227,7 +218,8 @@ public class BrevoEventPoller : BackgroundService
 
 							matchedLog++;
 
-							if (log.JobRecipientId == null)
+                            // 檢查關聯日誌中是否有關聯到具體的收件人 JobRecipientId
+                            if (log.JobRecipientId == null)
 							{
 								missJr++;
 								_logger.LogWarning("[Brevo] Log found but JobRecipientId is null. logId={LogId} email={Email} sentAt={SentAt}",
@@ -235,7 +227,8 @@ public class BrevoEventPoller : BackgroundService
 								continue;
 							}
 
-							var jr = await db.MailJobRecipients
+                            // 獲取具體的收件人工作狀態紀錄
+                            var jr = await db.MailJobRecipients
 								.FirstOrDefaultAsync(x => x.MailJobRecipientId == log.JobRecipientId.Value, stoppingToken);
 							if (jr == null)
 							{
@@ -288,14 +281,15 @@ public class BrevoEventPoller : BackgroundService
 							totalProcessed++;
 						}
 
-						await db.SaveChangesAsync(stoppingToken);
+                        // 每一頁處理完執行一次 SaveChanges，降低長時間鎖表的風險
+                        await db.SaveChangesAsync(stoppingToken);
 
 						_logger.LogInformation("[DBG] pageSummary ev={Event} fetched={Fetched} matchedLog={Matched} missLog={MissLog} missJR={MissJR} dup={Dup} inserted={Inserted}",
 							ev, pageFetched, matchedLog, missLog, missJr, dup, inserted);
 
 						if (inserted > 0) successThisRound = true; // 只要本頁有寫入就算成功
-						if (arr.Length < limit) break; // 不滿頁 → 這個事件抓完
-						offset += limit;
+						if (arr.Length < limit) break; // 若獲取筆數少於 limit，代表當前時間段的資料已抓完
+                        offset += limit;
 						pageIdx++;
 					}
 				}
@@ -323,30 +317,44 @@ public class BrevoEventPoller : BackgroundService
 				_logger.LogError(ex, "BrevoEventPoller failed");
 			}
 
-			await Task.Delay(TimeSpan.FromMinutes(minutes), stoppingToken);
+            // 依照設定分鐘數進行等待，直到下一次輪詢
+            await Task.Delay(TimeSpan.FromMinutes(minutes), stoppingToken);
 		}
 	}
 
-	// 解析 Brevo 的日期字串：支援 ISO8601 與 "yyyy-MM-dd HH:mm:ss"
-	private static DateTime ParseBrevoDate(string? s)
+    /// <summary>
+    /// 方法用途：解析 Brevo 回傳的日期字串
+    /// 支援 ISO8601 與自定義日期字串
+    /// </summary>
+    private static DateTime ParseBrevoDate(string? s)
 	{
 		if (string.IsNullOrWhiteSpace(s)) return DateTime.Now;
-		if (DateTime.TryParse(s, out var dt))
+        // 優先處理帶有時區資訊的標準 TryParse (如 ISO8601)
+        if (DateTime.TryParse(s, out var dt))
 			return dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
-		if (DateTime.TryParseExact(s, "yyyy-MM-dd HH:mm:ss", null,
+        // 保底處理特定的日期時間格式
+        if (DateTime.TryParseExact(s, "yyyy-MM-dd HH:mm:ss", null,
 			System.Globalization.DateTimeStyles.AssumeLocal, out dt))
 			return dt;
 		return DateTime.Now;
 	}
 
-	private static string? NormalizeMsgId(string? s)
+    /// <summary>
+    /// 方法用途：正規化 Message-ID，移除尖括號、不可見字元並轉為小寫
+    /// 目的是解決不同郵件伺服器轉發後造成的 ID 格式不一致問題	
+	/// /// </summary>
+    private static string? NormalizeMsgId(string? s)
 	{
 		if (string.IsNullOrWhiteSpace(s)) return null;
 		s = s.Trim().Trim('<', '>', ' ', '\t', '\r', '\n');
 		return s.ToLowerInvariant();
 	}
 
-	private static string? MaskEmail(string? email)
+
+    /// <summary>
+    /// 為了日誌安全性，遮蔽 Email 部分內容
+    /// </summary>
+    private static string? MaskEmail(string? email)
 	{
 		if (string.IsNullOrEmpty(email)) return email;
 		var at = email.IndexOf('@');
