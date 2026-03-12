@@ -36,9 +36,10 @@ namespace BookLoop.Controllers.api
 			if (string.IsNullOrWhiteSpace(email))
 				return Ok(new { hasItem = false });
 
-			// 2. 找出該會員尚未開啟的最新信件
-			var r = await _db.MailJobRecipients.AsNoTracking()
-				.Where(x => x.RecipientEmail == email && x.Status == "Sent" && x.OpenCount == 0)
+            // 2. 找出該會員尚未開啟的最新信件
+            var oneMonthAgo = DateTime.Now.AddDays(-30);
+            var r = await _db.MailJobRecipients.AsNoTracking()
+				.Where(x => x.RecipientEmail == email && x.Status == "Sent" && x.OpenCount == 0 && x.SentAt > oneMonthAgo)
 				.OrderByDescending(x => x.SentAt)
 				.Select(x => new { x.MailJobRecipientId, x.MailJobId, x.RecipientName })
 				.FirstOrDefaultAsync();
