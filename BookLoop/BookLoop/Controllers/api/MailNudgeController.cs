@@ -36,9 +36,10 @@ namespace BookLoop.Controllers.api
 			if (string.IsNullOrWhiteSpace(email))
 				return Ok(new { hasItem = false });
 
-			// 2. 找出該會員尚未開啟的最新信件
-			var r = await _db.MailJobRecipients.AsNoTracking()
-				.Where(x => x.RecipientEmail == email && x.Status == "Sent" && x.OpenCount == 0)
+            // 2. 找出該會員尚未開啟的最新信件
+            var oneMonthAgo = DateTime.Now.AddDays(-30);
+            var r = await _db.MailJobRecipients.AsNoTracking()
+				.Where(x => x.RecipientEmail == email && x.Status == "Sent" && x.OpenCount == 0 && x.SentAt > oneMonthAgo)
 				.OrderByDescending(x => x.SentAt)
 				.Select(x => new { x.MailJobRecipientId, x.MailJobId, x.RecipientName })
 				.FirstOrDefaultAsync();
@@ -251,7 +252,8 @@ namespace BookLoop.Controllers.api
 			return null;
 		}
 
-		private static string Sign(string payload, string? secret)
+        // 簽章：HMACSHA256(rid | url, secret)
+        private static string Sign(string payload, string? secret)
 		{
 			if (string.IsNullOrEmpty(secret)) return "";
 			using var h = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
@@ -259,10 +261,12 @@ namespace BookLoop.Controllers.api
 			return Convert.ToHexString(hash);
 		}
 
-		private static bool Verify(string payload, string given, string? secret) =>
+        // 驗證簽章
+        private static bool Verify(string payload, string given, string? secret) =>
 			string.Equals(Sign(payload, secret), given, StringComparison.OrdinalIgnoreCase);
 
-		private static string MakePreview(string? html, int maxLen = 80)
+        // 從 HTML 做純文字預覽（去掉垃圾標籤、解碼、壓縮空白，最後截斷）
+        private static string MakePreview(string? html, int maxLen = 80)
 		{
 			if (string.IsNullOrWhiteSpace(html)) return "";
 
@@ -295,7 +299,9 @@ namespace BookLoop.Controllers.api
 			return s;
 		}
 
-		private static readonly Regex _hrefRegex =
+
+        //抓連結的 Regex
+        private static readonly Regex _hrefRegex =
 	new Regex("href\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
 		// 把 <a href="https://..."> 改成 /api/mail/c/{rid}?u=ENC(url)&s=SIGN

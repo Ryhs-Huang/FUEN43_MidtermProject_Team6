@@ -49,86 +49,75 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useMailNudge } from "@/composables/useMailNudge";
-import { markSeen } from "@/utils/nudgeStore";
+import { 
+  getUserScope, 
+  markSeen, 
+  hasSeen, 
+  setSnooze, 
+  snoozed, 
+  setIgnore,
+  isIgnored,
+  clearSnooze,
+  clearIgnore
+ } from "@/utils/nudgeStore";
 
 const { item, fetchOnce } = useMailNudge();
 
 const show = ref(false);
 const mail = ref<any>(null);
 
-// 移到外層：控制展開/收合（預設收合）
+// 控制展開/收合（預設收合）
 const expanded = ref(false);
-
-// === 使用者作用域：讓每個使用者有自己的 snooze/ignore 狀態 ===
-// 從 JWT 取 mid（優先）或 email，拿不到就 'anon'
-function getUserScope(): string {
-  const raw = localStorage.getItem('token');
-  if (raw) {
-    try {
-      const payload = JSON.parse(atob(raw.split('.')[1]));
-      return String(payload.mid || payload.email || 'anon');
-    } catch {}
-  }
-  return 'anon';
-}
-const scope = getUserScope();
-
-// 作用域化的 key（每個人不同）
-const SNOOZE_KEY = `nudge_snooze_until_${scope}`;
-const IGNORE_KEY = `nudge_ignore_rid_${scope}`;
-
-// 忽略這封（只記這位使用者）
-const setIgnoredRid = (rid:number) => localStorage.setItem(IGNORE_KEY, String(rid));
-const getIgnoredRid = () => Number(localStorage.getItem(IGNORE_KEY) || '0');
-const clearIgnoredRid = () => localStorage.removeItem(IGNORE_KEY);
-
-// 「稍後提醒」：只對這位使用者生效
-function snoozedScoped(): boolean {
-  const until = Number(localStorage.getItem(SNOOZE_KEY) || '0');
-  return until > Date.now();
-}
-function setSnoozeScoped(ms:number) {
-  localStorage.setItem(SNOOZE_KEY, String(Date.now() + ms));
-}
-function clearSnoozeScoped() {
-  localStorage.removeItem(SNOOZE_KEY);
-}
-
 
 async function refresh() {
   // 只看本使用者的 snooze
-  if (snoozedScoped()) {
+  if (snoozed()) {
     show.value = false;
     return;
   }
 
   try {
     await fetchOnce();                 // 拉 /api/mail/unopened
-    const ignored = getIgnoredRid();   // 本使用者忽略的 rid
+    console.log('[Nudge Debug] 1. API 回傳 (item.value):', item.value);
     const incoming = item.value ?? null;
 
-    // 若是被本使用者忽略過的那封，就當作沒有新資料
-    mail.value = (incoming && incoming.rid === ignored) ? null : incoming;
+    const rid = incoming?.rid; // 自動處理 incoming 為空的情況
 
-    show.value = !!mail.value;
-    expanded.value = false;            // 初始維持收合
+    // 只有當 rid 存在，且「沒看過」也「沒忽略」時，才算有效 mail
+    if (rid != null) {
+          const seen = hasSeen(rid);
+          const ignored = isIgnored(rid);
+          console.log(`[Nudge Debug] 2. 判定中 -> RID: ${rid}, hasSeen: ${seen}, isIgnored: ${ignored}`);
+          
+          if (!seen && !ignored) {
+            console.log('[Nudge Debug] 3. 判定結果: 通過，準備顯示');
+            mail.value = incoming;
+          } else {
+            console.log(`[Nudge Debug] 3. 判定結果: 攔截 (原因: ${seen ? '已看過' : '已忽略'})`);
+            mail.value = null;
+          }
+        } else {
+          console.log('[Nudge Debug] 2. 判定失敗: incoming 或 rid 為空');
+          mail.value = null;
+        }
+        show.value = !!mail.value;
+        expanded.value = false;            // 初始維持收合
   } catch (e) {
     console.debug('[nudge] refresh failed', e);
   }
 }
 
-
 // 只忽略這封
 function closeX() {
-  if (mail.value?.rid) setIgnoredRid(mail.value.rid); // 只記這封、只記給這位使用者
+  if (mail.value?.rid) setIgnore(mail.value.rid); // 只記這封、只記給這位使用者
   expanded.value = false;
   show.value = false;
 }
 
 function viewNow() {
-  console.log('[nudge] viewUrl =', mail.value?.viewUrl);
-  console.log('[nudge] item =', item.value);
-  clearIgnoredRid(); // 清掉本使用者的忽略狀態
+  // console.log('[nudge] viewUrl =', mail.value?.viewUrl);
+  // console.log('[nudge] item =', item.value);
+  clearIgnore(); // 清掉本使用者的忽略狀態
   if (!mail.value?.viewUrl) return;
   markSeen(mail.value.rid);
 
@@ -163,13 +152,24 @@ function viewNow() {
 }
 
 function snooze() {
-  setSnoozeScoped(60 * 60 * 1000); // 1 小時，只對這位使用者
+  setSnooze(60 * 60 * 1000); // 1 小時，只對這位使用者
   show.value = false;
   expanded.value = false;
 }
 
-clearSnoozeScoped(); // 清掉之前暫停到期時間(只清本使用者）
-onMounted(refresh);
+let timer: number | null = null;
+
+onMounted(() => {
+  refresh();
+  // 每分鐘自動檢查一次
+  timer = window.setInterval(refresh, 60 * 1000);
+});
+
+// 在組件卸載時清除定時器，避免記憶體洩漏
+import { onUnmounted } from "vue";
+onUnmounted(() => {
+  if (timer) clearInterval(timer);
+});
 </script>
 
 <style scoped>
